@@ -3111,6 +3111,7 @@ function renderSection(name) {
       document.getElementById('htab-diario').classList.add('active');
       document.getElementById('htab-tracker').classList.remove('active');
       renderHistoricos();
+      renderVisualTracker();
       break;
     case 'tracker': renderTracker(); break;
     case 'tbr': renderTBR(); break;
@@ -3520,9 +3521,7 @@ function saveHistorico() {
   saveData(DB);
   closeHistModal();
   renderHistoricos();
-  // If tracker tab is already open, refresh it immediately
-  const _tp = document.getElementById('hist-pane-tracker');
-  if (_tp && _tp.style.display !== 'none') renderVisualTracker();
+  renderVisualTracker();
 }
 
 function openHistDetail(id) {
@@ -3640,6 +3639,11 @@ function addNewEmotion() {
   }
 }
 
+// ── FONTE ÚNICA DE DADOS ──
+function getHistoricos() {
+  return DB.historicos || [];
+}
+
 // ── VISUAL TRACKER ──
 let vtYear = new Date().getFullYear();
 let vtMode = 'progresso'; // 'progresso' | 'lido' | 'paginas'
@@ -3693,7 +3697,8 @@ function renderVisualTracker() {
 
   // Build day lookup
   const dayMap = {}; // key → { progresso, paginas, sessions[] }
-  DB.historicos.forEach(h => {
+  const historicos = getHistoricos();
+  historicos.forEach(h => {
     // Normalize data field — accept both string dates and timestamp IDs used as dates
     let dataStr = h.data ? String(h.data).trim() : '';
     // If data looks like a timestamp (all digits, >8 chars), skip — it's an ID, not a date
@@ -3815,7 +3820,7 @@ function renderHistoricos() {
   }
 
   const filterVal = (sel && sel.value) ? sel.value : 'todos';
-  let entries = [...DB.historicos].sort((a, b) => b.data.localeCompare(a.data));
+  let entries = [...getHistoricos()].sort((a, b) => b.data.localeCompare(a.data));
   if (filterVal !== 'todos') entries = entries.filter(h => h.livroId === parseInt(filterVal));
 
   document.getElementById('hist-count').textContent =
@@ -6717,7 +6722,11 @@ function resetColorPicker(cor) {
 // INIT
 // ══════════════════════════════════════════════════
 
-renderDashboard();
+window.addEventListener('DOMContentLoaded', () => {
+  renderDashboard();
+  renderHistoricos();
+  renderVisualTracker();
+});
 </script>
 
   <!-- ══ UNIVERSAL PAGE PANEL ══ -->
