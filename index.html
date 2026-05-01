@@ -3384,48 +3384,58 @@ let histEditingId = null;
 
 function openHistModal(id) {
   histEditingId = id || null;
+  const h = id ? DB.historicos.find(x => x.id === id) : null;
 
-  // Populate livro select
-  const sel = document.getElementById('hf-livro');
-  sel.innerHTML = '<option value="">Selecione um livro...</option>' +
-    DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
+  // Copy the hidden form structure into the panel
+  const histFormEl = document.getElementById('hist-modal').querySelector('.modal');
+  openPagePanel(
+    histEditingId ? '✏️ Editar Sessão' : '📖 Registrar Sessão',
+    histFormEl.innerHTML,
+    `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button><button class='btn btn-primary' onclick='saveHistorico()'>✓ Salvar</button>`
+  );
+
+  // All population targets the cloned form inside page-panel-body
+  const panel = document.getElementById('page-panel-body');
+  if (!panel) return;
+
+  // Livro select
+  const hSelB = panel.querySelector('#hf-livro');
+  if (hSelB) {
+    hSelB.innerHTML = '<option value="">Selecione um livro...</option>' +
+      DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
+    if (h && h.livroId) hSelB.value = h.livroId;
+  }
 
   // Sentimentos chips
-  const chips = document.getElementById('hf-sentimentos');
-  chips.innerHTML = SENTIMENTOS.map(s =>
-    `<span class="sent-chip" data-label="${s.label}"
-      style="background:${s.bg};color:${s.cor}"
-      onclick="toggleSent(this)">${s.label}</span>`
-  ).join('');
-
-  if (id) {
-    const h = DB.historicos.find(x => x.id === id);
+  const chipsEl = panel.querySelector('#hf-sentimentos');
+  if (chipsEl) {
+    chipsEl.innerHTML = SENTIMENTOS.map(s =>
+      `<span class='sent-chip' data-label='${s.label}' style='background:${s.bg};color:${s.cor}' onclick='toggleSent(this)'>${s.label}</span>`
+    ).join('');
     if (h) {
-      sel.value = h.livroId || '';
-      document.getElementById('hf-data').value = h.data || '';
-      document.getElementById('hf-progresso').value = h.progresso || 0;
-      document.getElementById('hf-comentario').value = h.comentario || '';
-      document.getElementById('hf-paginas').value = h.paginas || '';
-      chips.querySelectorAll('.sent-chip').forEach(c => {
+      chipsEl.querySelectorAll('.sent-chip').forEach(c => {
         if ((h.sentimentos || []).includes(c.dataset.label)) c.classList.add('selected');
       });
     }
-  } else {
-    sel.value = '';
-    document.getElementById('hf-data').value = new Date().toISOString().split('T')[0];
-    document.getElementById('hf-progresso').value = '';
-    document.getElementById('hf-comentario').value = '';
-    document.getElementById('hf-paginas').value = '';
   }
 
-  const histFormEl = document.getElementById('hist-modal').querySelector('.modal');
-  openPagePanel(histEditingId ? '✏️ Editar Sessão' : '📖 Registrar Sessão', histFormEl.innerHTML,
-    `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button><button class='btn btn-primary' onclick='saveHistorico()'>✓ Salvar</button>`);
-  // re-populate
-  const hSelB = document.getElementById('hf-livro');
-  if(hSelB) { hSelB.innerHTML = '<option value="">Selecione um livro...</option>' + DB.books.map(b=>`<option value="${b.id}">${b.titulo}</option>`).join(''); if(histEditingId){ const hh=DB.historicos.find(x=>x.id===histEditingId); if(hh&&hh.livroId) hSelB.value=hh.livroId; } }
-  const chipsEl = document.getElementById('hf-sentimentos');
-  if(chipsEl) { chipsEl.innerHTML = SENTIMENTOS.map(s=>`<span class='sent-chip' data-label='${s.label}' style='background:${s.bg};color:${s.cor}' onclick='toggleSent(this)'>${s.label}</span>`).join(''); if(histEditingId){ const hh=DB.historicos.find(x=>x.id===histEditingId); if(hh) chipsEl.querySelectorAll('.sent-chip').forEach(c=>{ if((hh.sentimentos||[]).includes(c.dataset.label)) c.classList.add('selected'); }); } }
+  // Remaining fields
+  const hfData = panel.querySelector('#hf-data');
+  const hfProg = panel.querySelector('#hf-progresso');
+  const hfCom  = panel.querySelector('#hf-comentario');
+  const hfPag  = panel.querySelector('#hf-paginas');
+
+  if (h) {
+    if (hfData) hfData.value = h.data || '';
+    if (hfProg) hfProg.value = h.progresso || 0;
+    if (hfCom)  hfCom.value  = h.comentario || '';
+    if (hfPag)  hfPag.value  = h.paginas || '';
+  } else {
+    if (hfData) hfData.value = new Date().toISOString().split('T')[0];
+    if (hfProg) hfProg.value = '';
+    if (hfCom)  hfCom.value  = '';
+    if (hfPag)  hfPag.value  = '';
+  }
 }
 
 function toggleSent(el) {
@@ -3437,20 +3447,26 @@ function closeHistModal() { closePagePanel(); }
 function closeHistModalOverlay(e) {}
 
 function saveHistorico() {
-  const livroId = parseInt(document.getElementById('hf-livro').value);
-  const data = document.getElementById('hf-data').value;
+  // Look inside page-panel-body first (since form is cloned there), fallback to document
+  const panel = document.getElementById('page-panel-body') || document;
+  const _pv = id => { const el = panel.querySelector('#'+id) || document.getElementById(id); return el ? el.value : ''; };
+
+  const livroId = parseInt(_pv('hf-livro'));
+  const data = _pv('hf-data');
   if (!data) { alert('Data é obrigatória'); return; }
 
-  const sentimentos = [...document.querySelectorAll('#hf-sentimentos .sent-chip.selected')]
+  const sentimentos = [...(panel.querySelectorAll('#hf-sentimentos .sent-chip.selected').length
+    ? panel.querySelectorAll('#hf-sentimentos .sent-chip.selected')
+    : document.querySelectorAll('#hf-sentimentos .sent-chip.selected'))]
     .map(c => c.dataset.label);
 
   const entry = {
     id: histEditingId || Date.now(),
     livroId: livroId || null,
     data,
-    progresso: parseInt(document.getElementById('hf-progresso').value) || 0,
-    comentario: document.getElementById('hf-comentario').value.trim(),
-    paginas: parseInt(document.getElementById('hf-paginas').value) || 0,
+    progresso: parseInt(_pv('hf-progresso')) || 0,
+    comentario: _pv('hf-comentario').trim(),
+    paginas: parseInt(_pv('hf-paginas')) || 0,
     sentimentos,
   };
 
