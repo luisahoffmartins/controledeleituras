@@ -3104,7 +3104,19 @@ function renderSection(name) {
   switch(name) {
     case 'dashboard': renderDashboard(); break;
     case 'biblioteca': renderLibrary(); break;
-    case 'historicos': renderHistoricos(); break;
+    case 'historicos':
+      // Always reset to Diário tab and render both
+      document.getElementById('hist-pane-diario').style.display  = '';
+      document.getElementById('hist-pane-tracker').style.display = 'none';
+      document.getElementById('htab-diario').classList.add('active');
+      document.getElementById('htab-tracker').classList.remove('active');
+      // Ensure book filters have a valid default before rendering
+      const _hf = document.getElementById('hist-book-filter');
+      if (_hf && !_hf.value) _hf.value = 'todos';
+      const _tf = document.getElementById('tracker-book-sel');
+      if (_tf && !_tf.value) _tf.value = 'todos';
+      renderHistoricos();
+      break;
     case 'tracker': renderTracker(); break;
     case 'tbr': renderTBR(); break;
     case 'series': renderSeries(); break;
@@ -3670,16 +3682,17 @@ function changeTrackerYear(delta) {
 }
 
 function renderVisualTracker() {
-  document.getElementById('tracker-year-label').textContent = vtYear;
+  const yearLabel = document.getElementById('tracker-year-label');
+  if (yearLabel) yearLabel.textContent = vtYear;
 
   const bsel = document.getElementById('tracker-book-sel');
   if (bsel) {
-    const cur = bsel.value;
+    const cur = bsel.value || 'todos';
     bsel.innerHTML = '<option value="todos">Todos os livros</option>' +
       DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
-    bsel.value = cur;
+    bsel.value = cur || 'todos';
   }
-  const bookFilter = bsel ? bsel.value : 'todos';
+  const bookFilter = (bsel && bsel.value) ? bsel.value : 'todos';
 
   // Build day lookup
   const dayMap = {}; // key → { progresso, paginas, sessions[] }
@@ -3794,13 +3807,13 @@ function renderHistoricos() {
   // Populate book filter
   const sel = document.getElementById('hist-book-filter');
   if (sel) {
-    const current = sel.value;
+    const current = sel.value || 'todos';
     sel.innerHTML = '<option value="todos">Todos os livros</option>' +
       DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
     sel.value = current;
   }
 
-  const filterVal = sel ? sel.value : 'todos';
+  const filterVal = (sel && sel.value) ? sel.value : 'todos';
   let entries = [...DB.historicos].sort((a, b) => b.data.localeCompare(a.data));
   if (filterVal !== 'todos') entries = entries.filter(h => h.livroId === parseInt(filterVal));
 
