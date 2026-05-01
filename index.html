@@ -3787,9 +3787,8 @@ function renderHistoricos() {
   document.getElementById('hist-count').textContent =
     `${entries.length} sessão(ões) registrada(s)`;
 
-  // If tracker tab is active, refresh it too
-  const trackerPane = document.getElementById('hist-pane-tracker');
-  if (trackerPane && trackerPane.style.display !== 'none') renderVisualTracker();
+  // Always keep tracker data in sync
+  renderVisualTracker();
 
   document.getElementById('hist-grid').innerHTML = entries.length === 0
     ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📖</div><p>Nenhuma sessão registrada ainda.</p></div>`
