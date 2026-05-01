@@ -3525,7 +3525,9 @@ function saveHistorico() {
   saveData(DB);
   closeHistModal();
   renderHistoricos();
-  renderVisualTracker();
+  // If tracker tab is already open, refresh it immediately
+  const _tp = document.getElementById('hist-pane-tracker');
+  if (_tp && _tp.style.display !== 'none') renderVisualTracker();
 }
 
 function openHistDetail(id) {
@@ -3607,7 +3609,12 @@ function switchHistTab(tab) {
   document.getElementById('hist-pane-tracker').style.display = tab === 'tracker' ? '' : 'none';
   document.getElementById('htab-diario').classList.toggle('active',  tab === 'diario');
   document.getElementById('htab-tracker').classList.toggle('active', tab === 'tracker');
-  if (tab === 'tracker') renderVisualTracker();
+  if (tab === 'tracker') {
+    // Ensure select has a valid value before rendering
+    const bsel = document.getElementById('tracker-book-sel');
+    if (bsel && !bsel.value) bsel.value = 'todos';
+    renderVisualTracker();
+  }
 }
 
 // ── ADD NEW EMOTION ──
@@ -3697,9 +3704,13 @@ function renderVisualTracker() {
   // Build day lookup
   const dayMap = {}; // key → { progresso, paginas, sessions[] }
   DB.historicos.forEach(h => {
-    if (!h.data || !h.data.startsWith(vtYear + '')) return;
-    if (bookFilter !== 'todos' && String(h.livroId) !== bookFilter) return;
-    const key = h.data;
+    // Normalize data field — accept both string dates and timestamp IDs used as dates
+    let dataStr = h.data ? String(h.data).trim() : '';
+    // If data looks like a timestamp (all digits, >8 chars), skip — it's an ID, not a date
+    if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return;
+    if (!dataStr.startsWith(String(vtYear))) return;
+    if (bookFilter !== 'todos' && String(h.livroId) !== String(bookFilter)) return;
+    const key = dataStr;
     if (!dayMap[key]) dayMap[key] = { progresso: 0, paginas: 0, sessions: [] };
     dayMap[key].progresso = Math.max(dayMap[key].progresso, h.progresso || 0);
     dayMap[key].paginas  += h.paginas || 0;
@@ -3819,9 +3830,6 @@ function renderHistoricos() {
 
   document.getElementById('hist-count').textContent =
     `${entries.length} sessão(ões) registrada(s)`;
-
-  // Always keep tracker data in sync
-  renderVisualTracker();
 
   document.getElementById('hist-grid').innerHTML = entries.length === 0
     ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📖</div><p>Nenhuma sessão registrada ainda.</p></div>`
