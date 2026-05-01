@@ -2109,7 +2109,7 @@
             <span id="tracker-year-label" style="font-family:'Playfair Display',serif;font-size:16px;font-weight:600"></span>
             <button class="cal-btn" onclick="changeTrackerYear(1)">›</button>
           </div>
-          <select class="form-select" id="tracker-book-sel" onchange="renderVisualTracker()" style="font-size:12px;padding:6px 12px;max-width:220px">
+          <select class="form-select" id="tracker-book-sel" onchange="vtBookFilter=this.value;renderVisualTracker()" style="font-size:12px;padding:6px 12px;max-width:220px">
             <option value="todos">Todos os livros</option>
           </select>
         </div>
@@ -3110,11 +3110,6 @@ function renderSection(name) {
       document.getElementById('hist-pane-tracker').style.display = 'none';
       document.getElementById('htab-diario').classList.add('active');
       document.getElementById('htab-tracker').classList.remove('active');
-      // Ensure book filters have a valid default before rendering
-      const _hf = document.getElementById('hist-book-filter');
-      if (_hf && !_hf.value) _hf.value = 'todos';
-      const _tf = document.getElementById('tracker-book-sel');
-      if (_tf && !_tf.value) _tf.value = 'todos';
       renderHistoricos();
       break;
     case 'tracker': renderTracker(); break;
@@ -3609,12 +3604,7 @@ function switchHistTab(tab) {
   document.getElementById('hist-pane-tracker').style.display = tab === 'tracker' ? '' : 'none';
   document.getElementById('htab-diario').classList.toggle('active',  tab === 'diario');
   document.getElementById('htab-tracker').classList.toggle('active', tab === 'tracker');
-  if (tab === 'tracker') {
-    // Ensure select has a valid value before rendering
-    const bsel = document.getElementById('tracker-book-sel');
-    if (bsel && !bsel.value) bsel.value = 'todos';
-    renderVisualTracker();
-  }
+  if (tab === 'tracker') renderVisualTracker();
 }
 
 // ── ADD NEW EMOTION ──
@@ -3653,6 +3643,7 @@ function addNewEmotion() {
 // ── VISUAL TRACKER ──
 let vtYear = new Date().getFullYear();
 let vtMode = 'progresso'; // 'progresso' | 'lido' | 'paginas'
+let vtBookFilter = 'todos'; // persisted filter — never rely on select.value alone
 
 const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -3694,12 +3685,11 @@ function renderVisualTracker() {
 
   const bsel = document.getElementById('tracker-book-sel');
   if (bsel) {
-    const cur = bsel.value || 'todos';
     bsel.innerHTML = '<option value="todos">Todos os livros</option>' +
       DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
-    bsel.value = cur || 'todos';
+    bsel.value = vtBookFilter;
   }
-  const bookFilter = (bsel && bsel.value) ? bsel.value : 'todos';
+  const bookFilter = vtBookFilter;
 
   // Build day lookup
   const dayMap = {}; // key → { progresso, paginas, sessions[] }
