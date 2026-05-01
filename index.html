@@ -2867,9 +2867,27 @@ const firebaseConfig = {
   measurementId:     "G-MHWLLR4BGR"
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth      = firebase.auth();
-const firestore = firebase.firestore();
+// Firebase stubs — usados quando os scripts externos não carregam (arquivo local / iframe)
+const _firebaseStub = {
+  onAuthStateChanged: (cb) => cb(null),
+  signInWithPopup: () => Promise.resolve(),
+  signOut: () => Promise.resolve(),
+  collection: () => ({ doc: () => ({
+    set: () => Promise.resolve(),
+    get: () => Promise.resolve({ exists: false, data: () => ({}) })
+  })})
+};
+
+let auth, firestore;
+try {
+  firebase.initializeApp(firebaseConfig);
+  auth      = firebase.auth();
+  firestore = firebase.firestore();
+} catch(e) {
+  console.warn('Firebase indisponível, usando modo offline:', e.message);
+  auth      = _firebaseStub;
+  firestore = _firebaseStub;
+}
 
 let currentUser = null;
 let _saveTimer  = null;
@@ -3086,6 +3104,7 @@ function renderSection(name) {
   switch(name) {
     case 'dashboard': renderDashboard(); break;
     case 'biblioteca': renderLibrary(); break;
+    case 'historicos': renderHistoricos(); break;
     case 'tracker': renderTracker(); break;
     case 'tbr': renderTBR(); break;
     case 'series': renderSeries(); break;
@@ -3494,6 +3513,7 @@ function saveHistorico() {
   saveData(DB);
   closeHistModal();
   renderHistoricos();
+  renderVisualTracker();
 }
 
 function openHistDetail(id) {
