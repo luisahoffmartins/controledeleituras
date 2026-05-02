@@ -6917,7 +6917,7 @@ async function searchGoogleBooks() {
     const isbnClean = query.replace(/[-\s]/g, '');
     const isISBN    = /^\d{10}$|^\d{13}$/.test(isbnClean);
     const apiQuery  = isISBN ? 'isbn:' + isbnClean : encodeURIComponent(query);
-    const url       = 'https://www.googleapis.com/books/v1/volumes?q=' + apiQuery + '&maxResults=8&langRestrict=pt,en';
+    const url       = 'https://www.googleapis.com/books/v1/volumes?q=' + apiQuery + '&maxResults=8';
 
     const res  = await fetch(url);
     const data = await res.json();
