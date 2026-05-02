@@ -3103,6 +3103,8 @@ try {
 
 let currentUser = null;
 let _saveTimer  = null;
+let _justImported = localStorage.getItem('_justImported') === '1';
+if (_justImported) localStorage.removeItem('_justImported');
 
 // ── Default data factory ──────────────────────────────────────────────
 function defaultDB() {
@@ -3221,18 +3223,25 @@ auth.onAuthStateChanged(async (user) => {
     currentUser = user;
     if (loginScreen) loginScreen.classList.add('hidden');
 
-    setSyncStatus('syncing');
-    const cloudData = await _loadFromFirestore();
-    if (cloudData) {
-      DB = cloudData;
-      localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
-      setSyncStatus('ok');
-      renderDashboard();
-      renderHistoricos();
-      renderVisualTracker();
-    } else {
+    if (_justImported) {
+      // Acabou de importar — envia os dados locais para a nuvem, não puxa
+      setSyncStatus('syncing');
       await _saveToFirestore(DB);
       setSyncStatus('ok');
+    } else {
+      setSyncStatus('syncing');
+      const cloudData = await _loadFromFirestore();
+      if (cloudData) {
+        DB = cloudData;
+        localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
+        setSyncStatus('ok');
+        renderDashboard();
+        renderHistoricos();
+        renderVisualTracker();
+      } else {
+        await _saveToFirestore(DB);
+        setSyncStatus('ok');
+      }
     }
   } else {
     currentUser = null;
@@ -6802,9 +6811,20 @@ function importarDados(input) {
       if (!dados.version)      dados.version      = DB_VERSION;
 
       // Save and reload
+      DB = dados;
       localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(dados));
-      if (typeof _saveToFirestore === 'function') _saveToFirestore(dados);
-      window.location.reload();
+      localStorage.setItem('_justImported', '1');
+      if (typeof _saveToFirestore === 'function') {
+        setSyncStatus('syncing');
+        _saveToFirestore(dados).then(() => {
+          setSyncStatus('ok');
+          setTimeout(() => window.location.reload(), 500);
+        }).catch(() => {
+          window.location.reload();
+        });
+      } else {
+        window.location.reload();
+      }
 
     } catch (err) {
       alert('❌ Erro ao ler o arquivo. Verifique se é um JSON válido.');
