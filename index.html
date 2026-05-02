@@ -6263,6 +6263,24 @@ function bookFormHTML() {
   return `
   <div style="max-width:760px">
 
+    <!-- ══ BUSCA GOOGLE BOOKS ══ -->
+    <div style="background:linear-gradient(135deg,#f5e8d3,#fdf6ee);border:1px solid #e8d5b7;border-radius:var(--radius);padding:16px;margin-bottom:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        🔍 Buscar livro automaticamente
+        <span style="font-size:10px;font-weight:400;color:var(--text-muted)">— preenche os campos automaticamente</span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="gb-query" placeholder="Título, autor ou ISBN..." style="flex:1;background:white"
+          onkeydown="if(event.key==='Enter')searchGoogleBooks()">
+        <button type="button" onclick="searchGoogleBooks()"
+          style="padding:10px 18px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;white-space:nowrap">
+          Buscar
+        </button>
+      </div>
+      <div id="gb-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;display:none"></div>
+      <div id="gb-results" style="margin-top:10px;display:none;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+    </div>
+
     <!-- ══ SEÇÃO: IDENTIFICAÇÃO ══ -->
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--card-border)">📖 Identificação</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
@@ -6856,6 +6874,141 @@ function saveInlineHistorico() {
       btn.style.borderColor = '';
     }, 2000);
   }
+}
+
+// ══════════════════════════════════════════════════
+// GOOGLE BOOKS SEARCH
+// ══════════════════════════════════════════════════
+
+async function searchGoogleBooks() {
+  const query = (document.getElementById('gb-query')?.value || '').trim();
+  if (!query) return;
+
+  const statusEl  = document.getElementById('gb-status');
+  const resultsEl = document.getElementById('gb-results');
+  if (!statusEl || !resultsEl) return;
+
+  statusEl.style.display = 'block';
+  statusEl.textContent   = '🔍 Buscando...';
+  resultsEl.style.display = 'none';
+  resultsEl.innerHTML    = '';
+
+  try {
+    // Detect ISBN (10 or 13 digits, possibly with hyphens)
+    const isbnClean = query.replace(/[-\s]/g, '');
+    const isISBN    = /^\d{10}$|^\d{13}$/.test(isbnClean);
+    const apiQuery  = isISBN ? 'isbn:' + isbnClean : encodeURIComponent(query);
+    const url       = 'https://www.googleapis.com/books/v1/volumes?q=' + apiQuery + '&maxResults=8&langRestrict=pt,en';
+
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      statusEl.textContent = '😕 Nenhum livro encontrado. Tente com outro título ou ISBN.';
+      return;
+    }
+
+    statusEl.style.display = 'none';
+    resultsEl.style.display = 'flex';
+
+    resultsEl.innerHTML = data.items.map((item, i) => {
+      const info   = item.volumeInfo || {};
+      const title  = info.title  || '(sem título)';
+      const author = (info.authors || []).join(', ') || '—';
+      const pages  = info.pageCount || '';
+      const thumb  = info.imageLinks
+        ? (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail || '').replace('http://', 'https://')
+        : '';
+      const year   = info.publishedDate ? info.publishedDate.slice(0, 4) : '';
+      const cats   = (info.categories || []).join(', ');
+
+      return \`<div onclick="fillBookFromGoogle(\${i})"
+        data-gbidx="\${i}"
+        style="display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:white;cursor:pointer;transition:all 0.15s"
+        onmouseover="this.style.borderColor='var(--accent)';this.style.background='#fdf6ee'"
+        onmouseout="this.style.borderColor='var(--card-border)';this.style.background='white'">
+        \${thumb
+          ? \`<img src="\${thumb}" alt="" style="width:44px;height:64px;object-fit:cover;border-radius:4px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.15)">\`
+          : \`<div style="width:44px;height:64px;background:linear-gradient(135deg,#e8dfd0,#d4c9b8);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px">📖</div>\`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.3;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">\${title}</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px">\${author}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--text-muted)">
+            \${year ? \`<span>📅 \${year}</span>\` : ''}
+            \${pages ? \`<span>📄 \${pages} pág.</span>\` : ''}
+            \${cats ? \`<span>🏷️ \${cats.slice(0,40)}\${cats.length>40?'…':''}</span>\` : ''}
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--accent);font-weight:500;white-space:nowrap;padding-top:2px">Usar →</div>
+      </div>\`;
+    }).join('');
+
+    // Store results data for fillBookFromGoogle
+    window._gbResults = data.items;
+
+  } catch (err) {
+    statusEl.style.display = 'block';
+    statusEl.textContent   = '❌ Erro na busca. Verifique sua conexão e tente novamente.';
+    console.error('Google Books error:', err);
+  }
+}
+
+function fillBookFromGoogle(idx) {
+  const items = window._gbResults;
+  if (!items || !items[idx]) return;
+  const info = items[idx].volumeInfo || {};
+
+  const set = (id, val) => { const el=document.getElementById(id); if(el && val) el.value = val; };
+
+  set('f-titulo', info.title || '');
+  set('f-autor',  (info.authors || []).join(', '));
+  set('f-paginas', info.pageCount || '');
+
+  // Genre: first category
+  if (info.categories && info.categories.length) {
+    set('f-genero', info.categories[0]);
+  }
+
+  // Sinopse: strip HTML tags from description
+  if (info.description) {
+    const plain = info.description.replace(/<[^>]+>/g, '').trim();
+    set('f-sinopse', plain);
+  }
+
+  // Cover image (prefer higher res)
+  const links = info.imageLinks || {};
+  const capaUrl = (links.extraLarge || links.large || links.medium || links.thumbnail || links.smallThumbnail || '')
+    .replace('http://', 'https://').replace('&edge=curl','');
+
+  if (capaUrl) {
+    set('f-capa', capaUrl);
+    const prev = document.getElementById('f-capa-preview');
+    const img  = document.getElementById('f-capa-img');
+    if (prev && img) {
+      img.src     = capaUrl;
+      img.onload  = () => { prev.style.display = 'block'; };
+      img.onerror = () => { prev.style.display = 'none'; };
+    }
+  }
+
+  // Collapse search results with a confirmation
+  const resultsEl = document.getElementById('gb-results');
+  const statusEl  = document.getElementById('gb-status');
+  const queryEl   = document.getElementById('gb-query');
+  if (resultsEl) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; }
+  if (statusEl)  {
+    statusEl.style.display = 'block';
+    statusEl.style.color   = 'var(--accent-green)';
+    statusEl.textContent   = '✓ Campos preenchidos! Revise e ajuste o que precisar.';
+    setTimeout(() => { if(statusEl) { statusEl.style.display='none'; statusEl.style.color=''; } }, 4000);
+  }
+  if (queryEl) queryEl.value = '';
+
+  // Scroll to title field
+  setTimeout(() => {
+    const titleEl = document.getElementById('f-titulo');
+    if (titleEl) titleEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function syncMetas() {
