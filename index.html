@@ -6909,50 +6909,93 @@ async function searchGoogleBooks() {
 
   statusEl.style.display = 'block';
   statusEl.style.color   = 'var(--text-muted)';
-  statusEl.textContent   = '🔍 Pesquisando na internet...';
+  statusEl.textContent   = '🔍 Buscando livro...';
   resultsEl.style.display = 'none';
   resultsEl.innerHTML    = '';
 
+  // Tenta Google Books primeiro, depois Open Library como fallback
   try {
-    const prompt = `Pesquise na internet informações sobre o livro: "${query}".
-Retorne APENAS um JSON válido (sem markdown, sem texto extra) neste formato:
-{"resultados":[{"titulo":"título","autor":"autor","paginas":300,"genero":"gênero","sinopse":"sinopse curta em português","capa":"URL da capa","ano":2020}]}
-Inclua até 3 resultados se houver mais de um livro com esse nome. Se não encontrar, retorne {"resultados":[]}.`;
+    const isbnClean = query.replace(/[-\s]/g, '');
+    const isISBN    = /^\d{10}$|^\d{13}$/.test(isbnClean);
+    const apiQuery  = isISBN ? 'isbn:' + isbnClean : encodeURIComponent(query);
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    const textBlock = (data.content || []).find(b => b.type === 'text');
-    const rawText = textBlock ? textBlock.text : '';
-
-    let parsed;
+    // ── 1. Google Books ──────────────────────────────────────
+    let items = [];
     try {
-      const clean = rawText.replace(/```json|```/g, '').trim();
-      const jsonMatch = clean.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-    } catch(e) { parsed = null; }
+      const gbUrl = 'https://www.googleapis.com/books/v1/volumes?q=' + apiQuery + '&maxResults=8&fields=items(volumeInfo)';
+      const gbRes  = await fetch(gbUrl);
+      const gbData = await gbRes.json();
+      if (gbData.items && gbData.items.length > 0) {
+        items = gbData.items.map(item => {
+          const info  = item.volumeInfo || {};
+          const links = info.imageLinks || {};
+          const capa  = (links.extraLarge||links.large||links.medium||links.thumbnail||links.smallThumbnail||'')
+            .replace('http://','https://').replace('&edge=curl','');
+          return {
+            titulo:   info.title || '',
+            autor:    (info.authors||[]).join(', '),
+            paginas:  info.pageCount || null,
+            genero:   (info.categories||[])[0] || '',
+            sinopse:  (info.description||'').replace(/<[^>]+>/g,'').trim().slice(0,400),
+            capa,
+            ano:      info.publishedDate ? info.publishedDate.slice(0,4) : '',
+            fonte:    'google'
+          };
+        });
+      }
+    } catch(e) { console.warn('Google Books falhou:', e); }
 
-    const resultados = parsed?.resultados || [];
+    // ── 2. Open Library (fallback ou complemento) ────────────
+    if (items.length === 0) {
+      try {
+        const olQuery = isISBN
+          ? 'https://openlibrary.org/api/books?bibkeys=ISBN:' + isbnClean + '&format=json&jscmd=data'
+          : 'https://openlibrary.org/search.json?q=' + apiQuery + '&limit=8&fields=title,author_name,number_of_pages_median,subject,cover_i,first_publish_year,key';
 
-    if (resultados.length === 0) {
+        const olRes  = await fetch(olQuery);
+        const olData = await olRes.json();
+
+        if (isISBN) {
+          const keys = Object.keys(olData);
+          items = keys.slice(0,8).map(k => {
+            const b = olData[k];
+            const coverId = b.cover?.large || b.cover?.medium || b.cover?.small || '';
+            return {
+              titulo:  b.title || '',
+              autor:   (b.authors||[]).map(a=>a.name).join(', '),
+              paginas: b.number_of_pages || null,
+              genero:  (b.subjects||[])[0]?.name || '',
+              sinopse: '',
+              capa:    coverId,
+              ano:     b.publish_date || '',
+              fonte:   'openlibrary'
+            };
+          });
+        } else {
+          items = (olData.docs||[]).slice(0,8).map(b => ({
+            titulo:  b.title || '',
+            autor:   (b.author_name||[]).join(', '),
+            paginas: b.number_of_pages_median || null,
+            genero:  (b.subject||[])[0] || '',
+            sinopse: '',
+            capa:    b.cover_i ? 'https://covers.openlibrary.org/b/id/' + b.cover_i + '-M.jpg' : '',
+            ano:     b.first_publish_year || '',
+            fonte:   'openlibrary'
+          }));
+        }
+      } catch(e) { console.warn('Open Library falhou:', e); }
+    }
+
+    if (items.length === 0) {
       statusEl.textContent = '😕 Nenhum livro encontrado. Tente com o título em português ou inglês.';
       return;
     }
 
-    statusEl.style.display = 'none';
+    statusEl.style.display  = 'none';
     resultsEl.style.display = 'flex';
-    window._gbResults = resultados;
+    window._gbResults       = items;
 
-    resultsEl.innerHTML = resultados.map((livro, i) => {
+    resultsEl.innerHTML = items.map((livro, i) => {
       const thumb = livro.capa || '';
       return `<div onclick="fillBookFromGoogle(${i})"
         style="display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:white;cursor:pointer;transition:all 0.15s"
@@ -6965,9 +7008,9 @@ Inclua até 3 resultados se houver mais de um livro com esse nome. Se não encon
           <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.3;margin-bottom:2px">${livro.titulo||'(sem título)'}</div>
           <div style="font-size:11px;color:var(--text-secondary);margin-bottom:3px">${livro.autor||'—'}</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--text-muted)">
-            ${livro.ano ? `<span>📅 ${livro.ano}</span>` : ''}
-            ${livro.paginas ? `<span>📄 ${livro.paginas} pág.</span>` : ''}
-            ${livro.genero ? `<span>🏷️ ${livro.genero}</span>` : ''}
+            ${livro.ano    ? `<span>📅 ${livro.ano}</span>`          : ''}
+            ${livro.paginas? `<span>📄 ${livro.paginas} pág.</span>` : ''}
+            ${livro.genero ? `<span>🏷️ ${livro.genero.slice(0,35)}</span>` : ''}
           </div>
         </div>
         <div style="font-size:10px;color:var(--accent);font-weight:500;white-space:nowrap;padding-top:2px">Usar →</div>
@@ -6995,7 +7038,6 @@ function fillBookFromGoogle(idx) {
   set('f-sinopse', livro.sinopse || '');
 
   const capaUrl = (livro.capa || '').replace('http://', 'https://').replace('&edge=curl','');
-
   if (capaUrl) {
     set('f-capa', capaUrl);
     const prev = document.getElementById('f-capa-preview');
@@ -7007,7 +7049,6 @@ function fillBookFromGoogle(idx) {
     }
   }
 
-  // Collapse search results with a confirmation
   const resultsEl = document.getElementById('gb-results');
   const statusEl  = document.getElementById('gb-status');
   const queryEl   = document.getElementById('gb-query');
@@ -7020,11 +7061,11 @@ function fillBookFromGoogle(idx) {
   }
   if (queryEl) queryEl.value = '';
 
-  // Scroll to title field
   setTimeout(() => {
     const titleEl = document.getElementById('f-titulo');
     if (titleEl) titleEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 100);
+}  }, 100);
 }
 
 function syncMetas() {
