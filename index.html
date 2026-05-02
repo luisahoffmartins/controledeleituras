@@ -3339,8 +3339,8 @@ function renderDashboard() {
     const b = lendo[0];
     lendoCard.innerHTML = `
       <div class="stat-label" style="margin-bottom:10px">📖 Lendo Agora
-        <button class="btn btn-ghost" onclick="showSection('tracker', document.querySelector('[onclick*=tracker]'))"
-          style="float:right;padding:3px 10px;font-size:11px;margin-top:-2px">Ver tracker</button>
+        <button class="btn btn-ghost" onclick="showSection('historicos', document.querySelector('[onclick*=historicos]'));setTimeout(()=>switchHistTab('tracker'),50)"
+          style="float:right;padding:3px 10px;font-size:11px;margin-top:-2px;background:#f5c842;border-color:#f5c842;color:#333">Ver tracker</button>
       </div>
       <div style="display:flex;gap:14px;align-items:center">
         <div style="width:56px;min-width:56px;aspect-ratio:2/3;border-radius:6px;overflow:hidden;background:#f0ebe3;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center">
@@ -3654,7 +3654,7 @@ function openHistDetail(id) {
     <div class="modal-header">
       <div class="modal-title">${formatDateBR(h.data)}</div>
       <div style="display:flex;gap:8px">
-        <button class="modal-close" onclick="openHistModal(${h.id});closeHistDetail()">✏️</button>
+        <button class="modal-close" onclick="closePagePanel();setTimeout(()=>openHistModal(${h.id}),120)">✏️</button>
         <button class="modal-close" style="color:var(--accent-rose)" onclick="deleteHistorico(${h.id})">🗑️</button>
         <button class="modal-close" onclick="closeHistDetail()">✕</button>
       </div>
@@ -3958,7 +3958,7 @@ function renderHistoricos() {
           <div class="hist-card" onclick="openHistDetail(${h.id})">
             <div class="hist-card-cover">
               ${coverHTML}
-              ${coverHTML ? `<div class="hist-date-overlay">${formatDateBR(h.data)}</div>` : ''}
+              ${coverHTML ? `<div class="hist-date-overlay" style="color:#fff">${formatDateBR(h.data)}</div>` : ''}
               ${!coverHTML ? `<span style="font-size:28px">📅</span>` : ''}
             </div>
             <div class="hist-card-body">
