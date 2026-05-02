@@ -2221,7 +2221,7 @@
     <div class="section" id="sec-biblioteca">
 
       <!-- Filtros coloridos estilo Notion -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
         <div class="lib-filter-bar" id="lib-filter-bar">
           <button class="lib-filter-btn active" data-filter="todos" onclick="setLibFilter('todos',this)">⊞ Todos</button>
           <button class="lib-filter-btn" data-filter="Lido"             onclick="setLibFilter('Lido',this)"><span class="fdot" style="background:#4caf50"></span></button>
@@ -2236,6 +2236,15 @@
           <button class="lib-filter-btn" data-filter="audiobook"        onclick="setLibFilter('audiobook',this)">🎧</button>
         </div>
         <button class="btn btn-primary" onclick="openModal()">+ Livro</button>
+      </div>
+
+      <!-- Barra de pesquisa -->
+      <div style="position:relative;margin-bottom:16px">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none">🔍</span>
+        <input type="search" id="lib-search" class="form-input"
+          placeholder="Pesquisar por título ou autor..."
+          oninput="renderLibrary()"
+          style="padding-left:38px;font-size:14px;height:40px">
       </div>
 
       <!-- Layout: painel lateral + gallery -->
@@ -3450,10 +3459,18 @@ function setLibFilter(filter, el) {
 
 function getFilteredBooks() {
   const f = libActiveFilter;
-  if (f === 'todos')    return DB.books;
-  if (f === 'favorito') return DB.books.filter(b => b.favorito);
-  if (f === 'físico' || f === 'e-book' || f === 'audiobook') return DB.books.filter(b => b.tipo === f);
-  return DB.books.filter(b => b.status === f);
+  let books;
+  if (f === 'todos')    books = DB.books;
+  else if (f === 'favorito') books = DB.books.filter(b => b.favorito);
+  else if (f === 'físico' || f === 'e-book' || f === 'audiobook') books = DB.books.filter(b => b.tipo === f);
+  else books = DB.books.filter(b => b.status === f);
+
+  const q = (document.getElementById('lib-search')?.value || '').toLowerCase().trim();
+  if (q) books = books.filter(b =>
+    b.titulo.toLowerCase().includes(q) ||
+    (b.autor || '').toLowerCase().includes(q)
+  );
+  return books;
 }
 
 function renderLibSidebar() {
