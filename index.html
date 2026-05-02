@@ -913,42 +913,59 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
     .top-bar {
-      padding-left: max(16px, env(safe-area-inset-left));
-      padding-right: max(16px, env(safe-area-inset-right));
-      padding-top: max(12px, env(safe-area-inset-top));
+      padding-left: max(56px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+      padding-top: max(10px, env(safe-area-inset-top));
+      padding-bottom: 10px;
+      flex-wrap: nowrap;
+      gap: 8px;
     }
     .content {
-      padding: 16px;
-      padding-top: 64px;
+      padding: 14px;
+      padding-top: 70px;
       padding-bottom: max(24px, env(safe-area-inset-bottom));
-      padding-left: max(16px, env(safe-area-inset-left));
-      padding-right: max(16px, env(safe-area-inset-right));
+      padding-left: max(14px, env(safe-area-inset-left));
+      padding-right: max(14px, env(safe-area-inset-right));
     }
     .sidebar-toggle {
-      top: max(16px, env(safe-area-inset-top));
-      left: max(16px, env(safe-area-inset-left));
+      top: max(12px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
     }
 
+    /* ── Top bar: esconde botões secundários, mantém só o essencial ── */
+    .top-action-desktop { display: none !important; }
+    #user-badge { padding: 3px 8px; }
+    #sync-label { display: none; }
+    .page-title { font-size: 15px; }
+    .top-actions { gap: 6px; }
+    .btn.btn-primary { padding: 8px 14px; font-size: 13px; }
+
     /* ── Grids ── */
-    .dashboard-grid, .dashboard-grid-3, .meta-cards { grid-template-columns: 1fr; }
-    #dash-top-row { grid-template-columns: 1fr 1fr !important; }
+    .dashboard-grid { grid-template-columns: 1fr; gap: 12px; margin-bottom: 16px; }
+    .dashboard-grid-3 { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    #dash-top-row { grid-template-columns: 1fr 1fr !important; gap: 10px; margin-bottom: 16px; }
     #dash-top-row #dash-lendo-now { grid-column: 1 / -1; }
     .historico-stats { grid-template-columns: repeat(2, 1fr); }
     .form-grid { grid-template-columns: 1fr; }
+    .meta-cards { grid-template-columns: 1fr; gap: 10px; }
 
-    /* ── Top bar ── */
-    .top-bar { padding-left: 64px; }
-    .page-title { font-size: 16px; }
-    .top-actions .btn span:not(:first-child) { display: none; } /* hide button labels, keep icons */
+    /* ── Stat cards ── */
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 28px; }
+    .stat-label { font-size: 10px; }
+
+    /* ── Section headers ── */
+    .section-header { flex-wrap: wrap; gap: 8px; }
+    .section-title { font-size: 16px; }
 
     /* ── Touch targets: min 44px (Apple HIG) ── */
     .btn { min-height: 44px; padding: 10px 16px; }
     .nav-item { min-height: 44px; }
     .cal-btn { width: 44px; height: 44px; }
-    .form-input, .form-select, .form-textarea { min-height: 44px; font-size: 16px; } /* font-size:16px prevents iOS zoom */
+    .form-input, .form-select, .form-textarea { min-height: 44px; font-size: 16px; }
     .hist-tab { padding: 12px 16px; min-height: 44px; }
     .vt-mode-btn { min-height: 44px; padding: 10px 14px; }
-    .lib-filter-btn { min-height: 40px; }
+    .lib-filter-btn { min-height: 44px; padding: 8px 14px; font-size: 13px; }
     .sent-chip { min-height: 40px; padding: 8px 14px; }
 
     /* ── Page panel: full-screen on mobile ── */
@@ -967,46 +984,64 @@
     }
     .page-panel-body .form-grid { grid-template-columns: 1fr; }
 
-    /* ── Modals ── */
+    /* ── Modals: sobe como sheet do iOS ── */
     .modal-overlay { align-items: flex-end; }
     .modal {
       width: 100vw;
       max-width: 100vw;
-      max-height: 90vh;
-      border-radius: var(--radius) var(--radius) 0 0;
+      max-height: 92dvh;
+      border-radius: 16px 16px 0 0;
       padding: 20px 16px;
-      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
     }
+    .modal h2 { font-size: 18px; }
 
-    /* ── Tables: scroll horizontally ── */
+    /* ── Tables: scroll horizontal ── */
     .data-table-wrap, .vt-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .data-table { min-width: 560px; }
 
-    /* ── Book grid: 2 columns on phone ── */
+    /* ── Book grid: 2 colunas no celular ── */
     .books-grid, .lib-gallery {
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
     }
 
-    /* ── Login card ── */
-    .login-card {
-      padding: 32px 20px;
-      padding-bottom: max(32px, env(safe-area-inset-bottom));
+    /* ── Filtros da biblioteca: scroll horizontal ── */
+    .lib-filter-bar {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+      gap: 8px;
     }
+    .lib-filter-bar::-webkit-scrollbar { display: none; }
 
-    /* ── Stat cards: 2 col ── */
-    .dashboard-grid-3 { grid-template-columns: 1fr 1fr; }
+    /* ── Tabs de histórico: scroll horizontal ── */
+    .hist-tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
+    .hist-tabs::-webkit-scrollbar { display: none; }
 
-    /* ── Section header wrap ── */
-    .section-header { flex-wrap: wrap; gap: 10px; }
+    /* ── Cards de prateleira ── */
+    .prateleira-book { min-width: 80px; width: 80px; }
+
+    /* ── Mensal grid ── */
+    .mensal-grid { grid-template-columns: 1fr !important; }
+
+    /* ── Desafio cards ── */
+    .desafio-card { padding: 14px; }
   }
 
-  /* ── Extra small (iPhone SE, 375px) ── */
+  /* ── Extra small (iPhone SE, 375px e menores) ── */
   @media (max-width: 390px) {
     .dashboard-grid-3 { grid-template-columns: 1fr; }
     .books-grid, .lib-gallery { grid-template-columns: repeat(2, 1fr); }
     .historico-stats { grid-template-columns: 1fr 1fr; }
-    .stat-value { font-size: 26px; }
+    .stat-value { font-size: 24px; }
+    .content { padding: 10px; padding-top: 66px; }
   }
 
   /* ── BIBLIOTECA GALLERY ── */
@@ -2010,19 +2045,6 @@
 </head>
 <body>
 
-<!-- ══ TELA DE LOGIN ══ -->
-<div id="login-screen">
-  <div class="login-card">
-    <div style="font-size:48px;margin-bottom:12px">📚</div>
-    <h1>Books are my happy place</h1>
-    <p>Entre com sua conta Google para sincronizar sua estante entre todos os dispositivos.</p>
-    <button class="btn-google" onclick="loginGoogle()">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Entrar com Google
-    </button>
-    <div class="login-status" id="login-status"></div>
-  </div>
-</div>
 
 <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
 
@@ -2098,17 +2120,16 @@
   <div class="top-bar">
     <div id="topTitle" class="page-title">📚 Dashboard</div>
     <div class="top-actions">
-      <div class="user-badge" onclick="logoutGoogle()" id="user-badge" style="display:none" title="Clique para sair">
+      <div id="user-badge" style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:var(--card-bg);border:1px solid var(--card-border)">
         <span class="sync-indicator" id="sync-dot"></span>
-        <img id="user-photo" src="" alt="">
-        <span id="user-name"></span>
+        <span id="sync-label" style="font-size:12px;color:var(--text-secondary)">Sincronizando...</span>
       </div>
-      <button class="btn btn-ghost" onclick="exportarDados()" title="Exportar todos os dados para backup">⬇️ Exportar</button>
-      <label class="btn btn-ghost" style="cursor:pointer;margin:0" title="Importar dados de um backup">
+      <button class="btn btn-ghost top-action-desktop" onclick="exportarDados()" title="Exportar todos os dados para backup">⬇️ Exportar</button>
+      <label class="btn btn-ghost top-action-desktop" style="cursor:pointer;margin:0" title="Importar dados de um backup">
         ⬆️ Importar
         <input type="file" accept=".json" onchange="importarDados(this)" style="display:none">
       </label>
-      <button class="btn btn-ghost" onclick="openModal()">+ Adicionar livro</button>
+      <button class="btn btn-ghost top-action-desktop" onclick="openModal()">+ Adicionar livro</button>
       <button class="btn btn-primary" onclick="openModal()">✦ Novo</button>
     </div>
   </div>
@@ -2975,19 +2996,21 @@ const DEFAULT_DESAFIOS = [
 // ══════════════════════════════════════════════════
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyDKFU7DbQo0gX0uBmL5tgU08lXQuI2Bzno",
-  authDomain:        "controle-de-leituras.firebaseapp.com",
-  projectId:         "controle-de-leituras",
-  storageBucket:     "controle-de-leituras.firebasestorage.app",
-  messagingSenderId: "1095645443696",
-  appId:             "1:1095645443696:web:66d4dc06179e66a173a6b5",
-  measurementId:     "G-MHWLLR4BGR"
+  apiKey:            "AIzaSyBODlOQHUv6A2yIozpkuFJ5xyUQcuoVMIo",
+  authDomain:        "controledeleituras-aa6a4.firebaseapp.com",
+  projectId:         "controledeleituras-aa6a4",
+  storageBucket:     "controledeleituras-aa6a4.firebasestorage.app",
+  messagingSenderId: "60759455368",
+  appId:             "1:60759455368:web:dea786469c5cb0c0d2513d",
+  measurementId:     "G-M7S1DT0VB6"
 };
 
 // Firebase stubs — usados quando os scripts externos não carregam (arquivo local / iframe)
+const _fakeUser = { uid: 'offline-user', displayName: null, photoURL: null };
 const _firebaseStub = {
-  onAuthStateChanged: (cb) => cb(null),
+  onAuthStateChanged: (cb) => { setTimeout(() => cb(_fakeUser), 0); return () => {}; },
   signInWithPopup: () => Promise.resolve(),
+  signInAnonymously: () => Promise.resolve({ user: _fakeUser }),
   signOut: () => Promise.resolve(),
   collection: () => ({ doc: () => ({
     set: () => Promise.resolve(),
@@ -3110,48 +3133,23 @@ async function _loadFromFirestore() {
 
 function setSyncStatus(status) {
   const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
   if (!dot) return;
   dot.className = 'sync-indicator' + (status === 'syncing' ? ' syncing' : '');
   dot.style.background = status === 'ok' ? '#66bb6a' : status === 'syncing' ? '#ffa726' : '#ef5350';
   dot.title = status === 'ok' ? 'Sincronizado' : status === 'syncing' ? 'Salvando...' : 'Erro ao sincronizar';
+  if (label) label.textContent = status === 'ok' ? 'Sincronizado' : status === 'syncing' ? 'Salvando...' : 'Erro ao sincronizar';
 }
 
-// ── AUTH ──────────────────────────────────────────────────────────────
-function loginGoogle() {
-  const status = document.getElementById('login-status');
-  status.textContent = 'Abrindo login do Google...';
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => {
-    status.textContent = '❌ Erro: ' + err.message;
-  });
-}
-
-function logoutGoogle() {
-  if (!confirm('Sair da conta? Seus dados continuam salvos na nuvem.')) return;
-  auth.signOut();
-}
-
-// ── Auth state listener — runs on every page load ─────────────────────
+// ── AUTH — login anônimo automático ───────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
-  const loginScreen = document.getElementById('login-screen');
-  const badge = document.getElementById('user-badge');
-
   if (user) {
     currentUser = user;
-
-    // Show user badge
-    document.getElementById('user-photo').src = user.photoURL || '';
-    document.getElementById('user-name').textContent  = user.displayName?.split(' ')[0] || 'Luísa';
-    if (badge) badge.style.display = 'flex';
-
-    // Hide login screen
-    if (loginScreen) loginScreen.classList.add('hidden');
 
     // Load from Firestore (may take a moment)
     setSyncStatus('syncing');
     const cloudData = await _loadFromFirestore();
     if (cloudData) {
-      // Cloud data wins over local cache — update DB and re-render
       DB = cloudData;
       localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
       setSyncStatus('ok');
@@ -3159,16 +3157,19 @@ auth.onAuthStateChanged(async (user) => {
       renderHistoricos();
       renderVisualTracker();
     } else {
-      // First time on this device — push local data to cloud
+      // Primeira vez — envia dados locais para a nuvem
       setSyncStatus('syncing');
       await _saveToFirestore(DB);
       setSyncStatus('ok');
     }
-
   } else {
-    currentUser = null;
-    if (badge) badge.style.display = 'none';
-    if (loginScreen) loginScreen.classList.remove('hidden');
+    // Nenhum usuário — faz login anônimo silencioso
+    try {
+      await auth.signInAnonymously();
+    } catch(e) {
+      console.warn('Login anônimo falhou, modo offline:', e.message);
+      setSyncStatus('error');
+    }
   }
 });
 
