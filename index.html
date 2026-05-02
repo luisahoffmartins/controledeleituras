@@ -167,6 +167,8 @@
     align-items: center;
   }
 
+  .top-action-mobile { display: none; }
+
   .btn {
     display: inline-flex;
     align-items: center;
@@ -968,6 +970,7 @@
 
     /* ── Top bar: esconde botões secundários, mantém só o essencial ── */
     .top-action-desktop { display: none !important; }
+    .top-action-mobile { display: flex; }
     #user-badge { padding: 3px 8px; }
     #sync-label { display: none; }
     .page-title { font-size: 15px; }
@@ -2177,6 +2180,19 @@
         <input type="file" accept=".json" onchange="importarDados(this)" style="display:none">
       </label>
       <button class="btn btn-ghost top-action-desktop" onclick="openModal()">+ Adicionar livro</button>
+
+      <!-- Menu mobile com ⋯ -->
+      <div style="position:relative" class="top-action-mobile">
+        <button class="btn btn-ghost" onclick="toggleMobileMenu()" style="min-width:44px;justify-content:center">⋯</button>
+        <div id="mobile-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:160px;z-index:300;overflow:hidden">
+          <button onclick="exportarDados();toggleMobileMenu()" style="width:100%;padding:12px 16px;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary)">⬇️ Exportar</button>
+          <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary);box-sizing:border-box">
+            ⬆️ Importar
+            <input type="file" accept=".json" onchange="importarDados(this);toggleMobileMenu()" style="display:none">
+          </label>
+        </div>
+      </div>
+
       <button class="btn btn-primary" onclick="openModal()">✦ Novo</button>
     </div>
   </div>
@@ -6721,6 +6737,18 @@ function formatDate(d) {
 // ══════════════════════════════════════════════════
 // EXPORT / IMPORT — SINCRONIZAÇÃO ENTRE DISPOSITIVOS
 // ══════════════════════════════════════════════════
+
+function toggleMobileMenu() {
+  const m = document.getElementById('mobile-menu');
+  if (!m) return;
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+  const menu = document.getElementById('mobile-menu');
+  if (menu && !menu.contains(e.target) && !e.target.closest('.top-action-mobile')) {
+    menu.style.display = 'none';
+  }
+});
 
 function exportarDados() {
   const dados = JSON.stringify(DB, null, 2);
