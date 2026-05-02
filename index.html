@@ -6457,11 +6457,13 @@ function bookFormHTML() {
           </div>
           <div class="form-group">
             <label class="form-label">Progresso (%)</label>
-            <input class="form-input" id="ih-progresso" type="number" min="0" max="100" placeholder="0">
+            <input class="form-input" id="ih-progresso" type="number" min="0" max="100" placeholder="0"
+              oninput="ihCalcFromProgresso(this.value)">
           </div>
           <div class="form-group">
-            <label class="form-label">Páginas lidas</label>
-            <input class="form-input" id="ih-paginas" type="number" min="0" placeholder="0">
+            <label class="form-label">Página atual <span id="ih-paginas-hint" style="font-weight:400;color:var(--text-muted);font-size:10px"></span></label>
+            <input class="form-input" id="ih-paginas" type="number" min="0" placeholder="0"
+              oninput="ihCalcFromPaginas(this.value)">
           </div>
           <div class="form-group">
             <label class="form-label">Como estava me sentindo</label>
@@ -6709,6 +6711,42 @@ function toggleInlineHistForm() {
     const ihData = document.getElementById('ih-data');
     if (ihData && !ihData.value) ihData.value = new Date().toISOString().split('T')[0];
     _renderIhSentimentos([]);
+    // Show total pages hint
+    _ihUpdateHint();
+  }
+}
+
+function _ihGetTotalPages() {
+  if (!editingId) return null;
+  const b = DB.books.find(x => x.id === editingId);
+  return (b && b.paginas && b.paginas > 0) ? b.paginas : null;
+}
+
+function _ihUpdateHint() {
+  const total = _ihGetTotalPages();
+  const hint = document.getElementById('ih-paginas-hint');
+  if (hint) hint.textContent = total ? '(de ' + total + ')' : '';
+}
+
+function ihCalcFromProgresso(val) {
+  const pct = parseFloat(val);
+  if (isNaN(pct)) return;
+  const total = _ihGetTotalPages();
+  if (total) {
+    const pag = Math.round((pct / 100) * total);
+    const el = document.getElementById('ih-paginas');
+    if (el && document.activeElement !== el) el.value = pag > 0 ? pag : '';
+  }
+}
+
+function ihCalcFromPaginas(val) {
+  const pag = parseFloat(val);
+  if (isNaN(pag)) return;
+  const total = _ihGetTotalPages();
+  if (total) {
+    const pct = Math.min(100, Math.round((pag / total) * 100));
+    const el = document.getElementById('ih-progresso');
+    if (el && document.activeElement !== el) el.value = pct;
   }
 }
 
@@ -6744,6 +6782,7 @@ function openInlineHistEdit(histId) {
   set('ih-paginas', h.paginas||'');
   set('ih-comentario', h.comentario||'');
   _renderIhSentimentos(h.sentimentos||[]);
+  _ihUpdateHint();
   setTimeout(() => form.scrollIntoView({ behavior:'smooth', block:'nearest' }), 50);
 }
 
