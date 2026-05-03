@@ -5159,7 +5159,10 @@ function renderPrateleiras() {
 
 function getBooksForDesafio(d) {
   // Manual desafio field on book
-  let byField = DB.books.filter(b => b.desafio === d.id || b.desafio === d.nome);
+  let byField = DB.books.filter(b => {
+    const vals = Array.isArray(b.desafio) ? b.desafio : (b.desafio ? [b.desafio] : []);
+    return vals.includes(d.id) || vals.includes(d.nome);
+  });
   // Auto-link by autor
   let byAutor = d.autor ? DB.books.filter(b => b.autor && b.autor.toLowerCase().includes(d.autor.toLowerCase())) : [];
   // Auto-link by genero
@@ -5405,6 +5408,10 @@ function renderDesafios() {
 function getBooksForMeta(m) {
   const ano = m.ano || new Date().getFullYear();
   return DB.books.filter(b => {
+    // Explicit link via meta field (array or legacy string)
+    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
+    if (metaVals.includes(m.id) || metaVals.includes(m.nome)) return true;
+    // Auto-link by year
     const bookAno = b.ano || (b.fim ? parseInt(b.fim.split('-')[0]) : null) || (b.inicio ? parseInt(b.inicio.split('-')[0]) : null);
     return bookAno === ano;
   });
@@ -6748,17 +6755,9 @@ function bookFormHTML() {
     (DB.prateleiras||DEFAULT_PRATELEIRAS).map(p =>
       `<option value="${p.nome}">${p.emoji} ${p.nome}</option>`).join('');
 
-  const desafioOptions = '<option value="">Nenhum</option>' +
-    (DB.desafios||[]).map(d =>
-      `<option value="${d.id}">${d.nome}</option>`).join('');
-
   const seriesOptions = '<option value="">Nenhuma</option>' +
     (DB.series||[]).map(s =>
       `<option value="${s.nome}">${s.nome}</option>`).join('');
-
-  const metasOptions = '<option value="">Nenhuma</option>' +
-    (DB.metas||[]).map(m =>
-      `<option value="${m.id}">${m.nome}</option>`).join('');
 
   return `
   <div style="max-width:760px">
@@ -6926,14 +6925,34 @@ function bookFormHTML() {
         <input class="form-input" id="f-serie-num" type="number" min="1" placeholder="Ex: 4">
       </div>
 
-      <div class="form-group">
-        <label class="form-label">🎯 Desafio</label>
-        <select class="form-select" id="f-desafio">${desafioOptions}</select>
+      <div class="form-group full">
+        <label class="form-label">🎯 Desafios</label>
+        <div id="f-desafio-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:40px;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--card-bg);cursor:pointer" onclick="toggleDesafioDropdown()"></div>
+        <div id="f-desafio-dropdown" style="display:none;position:relative;z-index:200;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);max-height:200px;overflow-y:auto;margin-top:2px">
+          ${(DB.desafios||[]).map(d => `<div class="desafio-opt" data-id="${d.id}" data-nome="${d.nome.replace(/"/g,'&quot;')}"
+            style="padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s"
+            onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"
+            onclick="event.stopPropagation();toggleDesafioChip('${d.id}','${d.nome.replace(/'/g,"\\'")}',this)">
+            <span class="desafio-opt-check" style="width:16px;height:16px;border:1.5px solid var(--card-border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"></span>
+            ${d.nome}
+          </div>`).join('')}
+        </div>
+        <input type="hidden" id="f-desafio">
       </div>
 
-      <div class="form-group">
-        <label class="form-label">⭐ Meta</label>
-        <select class="form-select" id="f-meta">${metasOptions}</select>
+      <div class="form-group full">
+        <label class="form-label">⭐ Metas</label>
+        <div id="f-meta-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;min-height:40px;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--card-bg);cursor:pointer" onclick="toggleMetaDropdown()"></div>
+        <div id="f-meta-dropdown" style="display:none;position:relative;z-index:200;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);max-height:200px;overflow-y:auto;margin-top:2px">
+          ${(DB.metas||[]).map(m => `<div class="meta-opt" data-id="${m.id}" data-nome="${m.nome.replace(/"/g,'&quot;')}"
+            style="padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s"
+            onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"
+            onclick="event.stopPropagation();toggleMetaChip('${m.id}','${m.nome.replace(/'/g,"\\'")}',this)">
+            <span class="meta-opt-check" style="width:16px;height:16px;border:1.5px solid var(--card-border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"></span>
+            ${m.nome}
+          </div>`).join('')}
+        </div>
+        <input type="hidden" id="f-meta">
       </div>
 
       <div class="form-group">
@@ -7050,10 +7069,30 @@ function _initBookFormInPanel(b) {
   const set  = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
   const setC = (id, val) => { const el=document.getElementById(id); if(el) el.checked=!!val; };
 
-  // Populate all dynamic selects fresh
-  const desafioSel = document.getElementById('f-desafio');
-  if (desafioSel) desafioSel.innerHTML = '<option value="">Nenhum</option>' +
-    (DB.desafios||[]).map(d => `<option value="${d.id}">${d.nome}</option>`).join('');
+  // Populate desafio chips dropdown fresh
+  const desafioDropdown = document.getElementById('f-desafio-dropdown');
+  if (desafioDropdown) desafioDropdown.innerHTML = (DB.desafios||[]).map(d =>
+    `<div class="desafio-opt" data-id="${d.id}" data-nome="${d.nome.replace(/"/g,'&quot;')}"
+      style="padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s"
+      onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"
+      onclick="event.stopPropagation();toggleDesafioChip('${d.id}','${d.nome.replace(/'/g,"\\'")}',this)">
+      <span class="desafio-opt-check" style="width:16px;height:16px;border:1.5px solid var(--card-border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"></span>
+      ${d.nome}
+    </div>`).join('');
+
+  // Populate meta chips dropdown fresh
+  const metaDropdown = document.getElementById('f-meta-dropdown');
+  if (metaDropdown) metaDropdown.innerHTML = (DB.metas||[]).map(m =>
+    `<div class="meta-opt" data-id="${m.id}" data-nome="${m.nome.replace(/"/g,'&quot;')}"
+      style="padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.1s"
+      onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"
+      onclick="event.stopPropagation();toggleMetaChip('${m.id}','${m.nome.replace(/'/g,"\\'")}',this)">
+      <span class="meta-opt-check" style="width:16px;height:16px;border:1.5px solid var(--card-border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0"></span>
+      ${m.nome}
+    </div>`).join('');
+
+  // Reset chips
+  resetChips('desafio'); resetChips('meta');
 
   const pratSel = document.getElementById('f-prateleira');
   if (pratSel) pratSel.innerHTML = '<option value="">Nenhuma</option>' +
@@ -7063,9 +7102,7 @@ function _initBookFormInPanel(b) {
   if (serieSel) serieSel.innerHTML = '<option value="">Nenhuma</option>' +
     (DB.series||[]).map(s => `<option value="${s.nome}">${s.nome}</option>`).join('');
 
-  const metaSel = document.getElementById('f-meta');
-  if (metaSel) metaSel.innerHTML = '<option value="">Nenhuma</option>' +
-    (DB.metas||[]).map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+  const metaSel = null; // replaced by chip selector
 
   if (!b) {
     // New book defaults
@@ -7075,7 +7112,7 @@ function _initBookFormInPanel(b) {
     ['f-paginas','f-progresso','f-nota','f-serie-num'].forEach(id => set(id,''));
     ['f-inicio','f-fim'].forEach(id => set(id,''));
     setC('f-favorito',false); setC('f-desejado',false); setC('f-tenho',false);
-    set('f-tbrmes',''); set('f-desafio',''); set('f-meta','');
+    set('f-tbrmes',''); resetChips('desafio'); resetChips('meta');
     const fp = document.getElementById('f-capa-preview'); if(fp) fp.style.display='none';
     const ns = document.getElementById('f-nota-stars'); if(ns) ns.textContent='';
     const hs = document.getElementById('f-historico-section'); if(hs) hs.style.display='none';
@@ -7102,10 +7139,22 @@ function _initBookFormInPanel(b) {
     setC('f-desejado',b.desejado);
     setC('f-tenho',   b.tenho);
 
-    if (desafioSel && b.desafio) desafioSel.value = b.desafio;
     if (pratSel && b.prateleira) pratSel.value = b.prateleira;
     if (serieSel && b.serie)     serieSel.value = b.serie;
-    if (metaSel && b.meta)       metaSel.value  = b.meta;
+
+    // Load desafios (support legacy single string or new array)
+    const desafioVals = Array.isArray(b.desafio) ? b.desafio : (b.desafio ? [b.desafio] : []);
+    desafioVals.forEach(id => {
+      const opt = document.querySelector(`.desafio-opt[data-id="${id}"]`);
+      if (opt) { const d = DB.desafios.find(x=>x.id===id); if(d) activateChip('desafio', id, d.nome, opt); }
+    });
+
+    // Load metas (support legacy single string or new array)
+    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
+    metaVals.forEach(id => {
+      const opt = document.querySelector(`.meta-opt[data-id="${id}"]`);
+      if (opt) { const m = DB.metas.find(x=>x.id===id); if(m) activateChip('meta', id, m.nome, opt); }
+    });
 
     // Stars preview
     const ns = document.getElementById('f-nota-stars');
@@ -7557,6 +7606,123 @@ function syncMetas() {
   });
 }
 
+// ══════════════════════════════════════════════════
+// MULTI-SELECT CHIP PICKERS (desafio & meta)
+// ══════════════════════════════════════════════════
+
+function getChipValues(type) {
+  const hidden = document.getElementById(`f-${type}`);
+  if (!hidden || !hidden.value) return [];
+  return hidden.value.split('||').filter(Boolean);
+}
+
+function resetChips(type) {
+  const chips = document.getElementById(`f-${type}-chips`);
+  const hidden = document.getElementById(`f-${type}`);
+  if (chips) chips.innerHTML = '<span style="font-size:12px;color:var(--text-muted);padding:2px 4px">Clique para selecionar...</span>';
+  if (hidden) hidden.value = '';
+  document.querySelectorAll(`.${type}-opt`).forEach(opt => {
+    opt.querySelector(`.${type}-opt-check`).textContent = '';
+    opt.querySelector(`.${type}-opt-check`).style.background = '';
+    opt.querySelector(`.${type}-opt-check`).style.borderColor = 'var(--card-border)';
+  });
+}
+
+function activateChip(type, id, nome, optEl) {
+  const hidden = document.getElementById(`f-${type}`);
+  if (!hidden) return;
+  const vals = hidden.value ? hidden.value.split('||').filter(Boolean) : [];
+  if (vals.includes(id)) return;
+  vals.push(id);
+  hidden.value = vals.join('||');
+  _refreshChipsDisplay(type);
+  if (optEl) {
+    const check = optEl.querySelector(`.${type}-opt-check`);
+    if (check) { check.textContent = '✓'; check.style.background = 'var(--accent)'; check.style.borderColor = 'var(--accent)'; check.style.color = 'white'; }
+  }
+}
+
+function toggleDesafioChip(id, nome, optEl) { _toggleChip('desafio', id, nome, optEl); }
+function toggleMetaChip(id, nome, optEl)    { _toggleChip('meta', id, nome, optEl); }
+
+function _toggleChip(type, id, nome, optEl) {
+  const hidden = document.getElementById(`f-${type}`);
+  if (!hidden) return;
+  let vals = hidden.value ? hidden.value.split('||').filter(Boolean) : [];
+  const check = optEl ? optEl.querySelector(`.${type}-opt-check`) : null;
+  if (vals.includes(id)) {
+    vals = vals.filter(v => v !== id);
+    if (check) { check.textContent = ''; check.style.background = ''; check.style.borderColor = 'var(--card-border)'; check.style.color = ''; }
+  } else {
+    vals.push(id);
+    if (check) { check.textContent = '✓'; check.style.background = 'var(--accent)'; check.style.borderColor = 'var(--accent)'; check.style.color = 'white'; }
+  }
+  hidden.value = vals.join('||');
+  _refreshChipsDisplay(type);
+}
+
+function _refreshChipsDisplay(type) {
+  const hidden = document.getElementById(`f-${type}`);
+  const chips  = document.getElementById(`f-${type}-chips`);
+  if (!chips || !hidden) return;
+  const vals = hidden.value ? hidden.value.split('||').filter(Boolean) : [];
+  if (vals.length === 0) {
+    chips.innerHTML = '<span style="font-size:12px;color:var(--text-muted);padding:2px 4px">Clique para selecionar...</span>';
+    return;
+  }
+  const source = type === 'desafio' ? DB.desafios : DB.metas;
+  chips.innerHTML = vals.map(id => {
+    const item = source.find(x => x.id === id);
+    const label = item ? item.nome : id;
+    return `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--accent-light);color:var(--accent);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500">
+      ${label}
+      <span onclick="event.stopPropagation();_removeChip('${type}','${id}')" style="cursor:pointer;font-size:13px;line-height:1;opacity:0.7;margin-left:1px">×</span>
+    </span>`;
+  }).join('');
+}
+
+function _removeChip(type, id) {
+  const hidden = document.getElementById(`f-${type}`);
+  if (!hidden) return;
+  let vals = hidden.value ? hidden.value.split('||').filter(Boolean) : [];
+  vals = vals.filter(v => v !== id);
+  hidden.value = vals.join('||');
+  _refreshChipsDisplay(type);
+  const opt = document.querySelector(`.${type}-opt[data-id="${id}"]`);
+  if (opt) {
+    const check = opt.querySelector(`.${type}-opt-check`);
+    if (check) { check.textContent = ''; check.style.background = ''; check.style.borderColor = 'var(--card-border)'; check.style.color = ''; }
+  }
+}
+
+function toggleDesafioDropdown() {
+  const dd = document.getElementById('f-desafio-dropdown');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  document.getElementById('f-meta-dropdown').style.display = 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+}
+
+function toggleMetaDropdown() {
+  const dd = document.getElementById('f-meta-dropdown');
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  document.getElementById('f-desafio-dropdown').style.display = 'none';
+  dd.style.display = isOpen ? 'none' : 'block';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('#f-desafio-chips') && !e.target.closest('#f-desafio-dropdown')) {
+    const dd = document.getElementById('f-desafio-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#f-meta-chips') && !e.target.closest('#f-meta-dropdown')) {
+    const dd = document.getElementById('f-meta-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
 function saveBook() {
   const titulo = document.getElementById('f-titulo').value.trim();
   if (!titulo) { alert('Título é obrigatório'); return; }
@@ -7594,8 +7760,8 @@ function saveBook() {
     capa:       _gv('f-capa') || null,
     cor:        _gv('f-cor') || null,
     tbrMes:     _gv('f-tbrmes') || null,
-    desafio:    _gv('f-desafio') || null,
-    meta:       _gv('f-meta') || null,
+    desafio:    getChipValues('desafio'),
+    meta:       getChipValues('meta'),
     ano
   };
 
