@@ -2358,11 +2358,11 @@
           </div>
           <div class="form-group">
             <label class="form-label">Progresso (%)</label>
-            <input class="form-input" id="hf-progresso" type="number" min="0" max="100" placeholder="0">
+            <input class="form-input" id="hf-progresso" type="number" min="0" max="100" placeholder="0" oninput="calcHistPagesFromProgress(this)">
           </div>
           <div class="form-group">
             <label class="form-label">Páginas lidas</label>
-            <input class="form-input" id="hf-paginas" type="number" min="0" placeholder="0">
+            <input class="form-input" id="hf-paginas" type="number" min="0" placeholder="0" oninput="calcHistProgressFromPages(this)">
           </div>
           <div class="form-group full">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
@@ -4145,6 +4145,18 @@ function openHistModal(id) {
       DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
     if (h && h.livroId) hSelB.value = h.livroId;
   }
+
+    // Ao trocar o livro, recalcula % ou páginas se um deles já estiver preenchido
+    hSelB.addEventListener("change", () => {
+      const hfProg2 = panel.querySelector("#hf-progresso");
+      const hfPag2  = panel.querySelector("#hf-paginas");
+      if (!hfProg2 || !hfPag2) return;
+      if (hfPag2.value && parseInt(hfPag2.value) > 0) {
+        calcHistProgressFromPages(hfPag2);
+      } else if (hfProg2.value && parseFloat(hfProg2.value) > 0) {
+        calcHistPagesFromProgress(hfProg2);
+      }
+    });
 
   // Sentimentos chips
   const chipsEl = panel.querySelector('#hf-sentimentos');
@@ -6834,7 +6846,7 @@ function bookFormHTML() {
 
       <div class="form-group">
         <label class="form-label">Páginas</label>
-        <input class="form-input" id="f-paginas" type="number" placeholder="0">
+        <input class="form-input" id="f-paginas" type="number" placeholder="0" oninput="calcBookPagesFromPages(this)">
       </div>
 
       <div class="form-group full">
@@ -6867,7 +6879,7 @@ function bookFormHTML() {
 
       <div class="form-group">
         <label class="form-label">Progresso (%)</label>
-        <input class="form-input" id="f-progresso" type="number" placeholder="0" min="0" max="100">
+        <input class="form-input" id="f-progresso" type="number" placeholder="0" min="0" max="100" oninput="calcBookPagesFromProgress(this)">
       </div>
 
       <div class="form-group">
@@ -8015,6 +8027,61 @@ function resetColorPicker(cor) {
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════
+// CÁLCULO BIDIRECIONAL: PÁGINAS ↔ PORCENTAGEM
+// ══════════════════════════════════════════════════
+
+// Cadastro do livro: ao digitar páginas totais, recalcula o progresso em %
+function calcBookPagesFromPages(el) {
+  const panel = el.closest('#page-panel-body') || document;
+  const totalPag = parseInt(el.value) || 0;
+  const progEl = panel.querySelector('#f-progresso') || document.getElementById('f-progresso');
+  if (!progEl) return;
+  const perc = parseFloat(progEl.value);
+  if (totalPag > 0 && !isNaN(perc) && perc > 0) {
+    // mantém a porcentagem, não recalcula (usuário está editando páginas)
+  }
+  // Se já havia porcentagem preenchida, recalcula pág lidas implicitamente (sem campo extra)
+}
+
+// Cadastro do livro: ao digitar %, converte para páginas lidas (sem alterar total de páginas)
+function calcBookPagesFromProgress(el) {
+  // Sem campo extra de "páginas lidas" no cadastro — nada a fazer além de validar 0-100
+  const val = parseFloat(el.value);
+  if (val > 100) el.value = 100;
+  if (val < 0)   el.value = 0;
+}
+
+// Histórico: ao digitar %, calcula páginas lidas com base no total do livro selecionado
+function calcHistPagesFromProgress(el) {
+  const panel = el.closest('#page-panel-body') || document;
+  const livroEl = panel.querySelector('#hf-livro') || document.getElementById('hf-livro');
+  const pagEl   = panel.querySelector('#hf-paginas') || document.getElementById('hf-paginas');
+  if (!livroEl || !pagEl) return;
+  const livroId = parseInt(livroEl.value);
+  const livro = DB.books.find(b => b.id === livroId);
+  if (!livro || !livro.paginas) return;
+  const perc = parseFloat(el.value);
+  if (isNaN(perc)) return;
+  const bounded = Math.min(100, Math.max(0, perc));
+  el.value = bounded;
+  pagEl.value = Math.round((bounded / 100) * livro.paginas);
+}
+
+// Histórico: ao digitar páginas lidas, calcula % com base no total do livro selecionado
+function calcHistProgressFromPages(el) {
+  const panel = el.closest('#page-panel-body') || document;
+  const livroEl = panel.querySelector('#hf-livro') || document.getElementById('hf-livro');
+  const progEl  = panel.querySelector('#hf-progresso') || document.getElementById('hf-progresso');
+  if (!livroEl || !progEl) return;
+  const livroId = parseInt(livroEl.value);
+  const livro = DB.books.find(b => b.id === livroId);
+  if (!livro || !livro.paginas) return;
+  const pags = parseInt(el.value);
+  if (isNaN(pags)) return;
+  progEl.value = Math.min(100, Math.round((pags / livro.paginas) * 100));
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   renderDashboard();
