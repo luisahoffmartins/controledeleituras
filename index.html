@@ -365,8 +365,8 @@
   /* ── BOOK CARDS ── */
   .books-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
   }
 
   .book-card {
@@ -436,21 +436,21 @@
   }
 
   .book-info {
-    padding: 12px;
+    padding: 8px 10px 10px;
   }
 
   .book-title {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.3;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
 
   .book-author {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .book-tag {
@@ -1129,10 +1129,10 @@
     .data-table-wrap, .vt-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .data-table { min-width: 560px; }
 
-    /* ── Book grid: 2 colunas no celular ── */
+    /* ── Book grid: 3 colunas no celular ── */
     .books-grid, .lib-gallery {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
     }
 
     /* ── Filtros da biblioteca: scroll horizontal ── */
@@ -6163,15 +6163,18 @@ let planModalDate = null;
 function openPlanModal(date) {
   planModalDate = date || null;
 
-  // Build livro options
-  const livroOpts = '<option value="">Selecione um livro...</option>' +
-    DB.books.map(b => `<option value="${b.id}">${b.titulo}</option>`).join('');
-
   const formHTML = `
     <div class="form-grid" style="max-width:500px">
-      <div class="form-group full">
+      <div class="form-group full" style="position:relative">
         <label class="form-label">Livro</label>
-        <select class="form-select" id="pf-livro">${livroOpts}</select>
+        <input class="form-input" id="pf-livro-text" type="text" placeholder="Digite o nome do livro..." autocomplete="off"
+          oninput="filterPlanBooks(this.value)" style="width:100%">
+        <input type="hidden" id="pf-livro">
+        <div id="pf-livro-suggestions" style="
+          display:none;position:absolute;top:100%;left:0;right:0;z-index:999;
+          background:#fff;border:1px solid var(--card-border);border-radius:var(--radius-sm);
+          box-shadow:var(--shadow-lg);max-height:220px;overflow-y:auto;margin-top:4px;
+        "></div>
       </div>
       <div class="form-group">
         <label class="form-label">Data início</label>
@@ -6186,6 +6189,62 @@ function openPlanModal(date) {
   openPagePanel('📅 Planejar Leitura', formHTML,
     `<button class="btn btn-ghost" onclick="closePagePanel()">Cancelar</button>
      <button class="btn btn-primary" onclick="savePlan()">✓ Salvar</button>`);
+
+  // Close suggestions when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', _closePlanSuggestions, { once: false, capture: true });
+  }, 100);
+}
+
+function _closePlanSuggestions(e) {
+  const wrap = document.getElementById('pf-livro-suggestions');
+  const input = document.getElementById('pf-livro-text');
+  if (wrap && input && !wrap.contains(e.target) && e.target !== input) {
+    wrap.style.display = 'none';
+    document.removeEventListener('click', _closePlanSuggestions, true);
+  }
+}
+
+function filterPlanBooks(query) {
+  const suggestions = document.getElementById('pf-livro-suggestions');
+  const hiddenInput = document.getElementById('pf-livro');
+  if (!suggestions) return;
+
+  // Clear selected id when user types
+  hiddenInput.value = '';
+
+  const q = query.trim().toLowerCase();
+  if (!q) { suggestions.style.display = 'none'; return; }
+
+  const matches = DB.books.filter(b =>
+    b.titulo.toLowerCase().includes(q) || (b.autor && b.autor.toLowerCase().includes(q))
+  ).slice(0, 12);
+
+  if (matches.length === 0) {
+    suggestions.innerHTML = `<div style="padding:12px 14px;font-size:13px;color:var(--text-muted);font-style:italic">Nenhum livro encontrado</div>`;
+  } else {
+    suggestions.innerHTML = matches.map(b => `
+      <div onclick="selectPlanBook(${b.id}, '${b.titulo.replace(/'/g, "\\'")}')"
+        style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
+          border-bottom:1px solid var(--card-border);transition:background 0.1s;"
+        onmouseover="this.style.background='var(--accent-light)'"
+        onmouseout="this.style.background=''"
+      >
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.titulo}</div>
+          ${b.autor ? `<div style="font-size:11px;color:var(--text-muted)">${b.autor}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  suggestions.style.display = 'block';
+}
+
+function selectPlanBook(id, titulo) {
+  document.getElementById('pf-livro').value = id;
+  document.getElementById('pf-livro-text').value = titulo;
+  document.getElementById('pf-livro-suggestions').style.display = 'none';
 }
 
 function closePlanModal() { closePagePanel(); }
@@ -6194,7 +6253,11 @@ function closePlanModalOverlay(e) {}
 
 function savePlan() {
   const rawId = document.getElementById('pf-livro').value;
-  if (!rawId) { alert('Selecione um livro'); return; }
+  const texto = (document.getElementById('pf-livro-text')?.value || '').trim();
+  if (!rawId) {
+    if (!texto) { alert('Digite e selecione um livro'); return; }
+    alert('Selecione um livro da lista de sugestões'); return;
+  }
   const inicio = document.getElementById('pf-inicio').value;
   const fim    = document.getElementById('pf-fim').value;
   if (!inicio) { alert('Data início é obrigatória'); return; }
