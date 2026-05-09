@@ -3830,6 +3830,7 @@ function renderDashboard() {
 
 // ── LIBRARY ──
 let libActiveFilter = 'todos';
+let libAnoFilter = null;
 
 const STATUS_CONFIG = {
   'Lido':           { cor: '#4caf50', bg: '#e8f5e9', label: 'Lido' },
@@ -3865,6 +3866,8 @@ function getFilteredBooks() {
   else if (f === 'físico' || f === 'e-book' || f === 'audiobook') books = DB.books.filter(b => b.tipo === f);
   else books = DB.books.filter(b => b.status === f);
 
+  if (libAnoFilter) books = books.filter(b => b.ano === libAnoFilter);
+
   const q = (document.getElementById('lib-search')?.value || '').toLowerCase().trim();
   if (q) books = books.filter(b =>
     b.titulo.toLowerCase().includes(q) ||
@@ -3873,11 +3876,35 @@ function getFilteredBooks() {
   return books;
 }
 
+function goToLidosAno(ano) {
+  libAnoFilter = ano;
+  libActiveFilter = 'Lido';
+  showSection('biblioteca', document.querySelector('[onclick*=biblioteca]'));
+  setTimeout(() => {
+    document.querySelectorAll('.lib-filter-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector('.lib-filter-btn[data-filter="Lido"]');
+    if (btn) btn.classList.add('active');
+    renderLibrary();
+    const old = document.getElementById('lib-ano-badge');
+    if (old) old.remove();
+    const libCount = document.getElementById('lib-count');
+    if (libCount) {
+      const badge = document.createElement('span');
+      badge.id = 'lib-ano-badge';
+      badge.style.cssText = 'margin-left:10px;background:var(--accent-light);color:var(--accent);font-size:12px;padding:2px 10px;border-radius:99px;font-weight:600;cursor:pointer';
+      badge.title = 'Clique para remover filtro de ano';
+      badge.textContent = '\u2728 ' + ano;
+      badge.onclick = () => { libAnoFilter = null; badge.remove(); renderLibrary(); };
+      libCount.parentNode.insertBefore(badge, libCount.nextSibling);
+    }
+  }, 80);
+}
+
 function renderLibSidebar() {
   const all = DB.books;
   const anoAtual = new Date().getFullYear();
 
-  function sidePanel(icon, titulo, livros) {
+  function sidePanel(icon, titulo, livros, anoClick) {
     const lido    = livros.filter(b => b.status === 'Lido').length;
     const lendo   = livros.filter(b => b.status === 'Lendo').length;
     const tbr     = livros.filter(b => b.status === 'Quero ler' || b.status === 'Quero muito ler').length;
@@ -3886,9 +3913,14 @@ function renderLibSidebar() {
     const fisico  = livros.filter(b => b.tipo === 'físico').length;
     const ebook   = livros.filter(b => b.tipo === 'e-book').length;
     const audio   = livros.filter(b => b.tipo === 'audiobook').length;
+    const clickAttr = anoClick ? `onclick="goToLidosAno(${anoClick})" style="cursor:pointer" title="Ver livros lidos em ${anoClick}"` : '';
+    const hoverStyle = anoClick ? `onmouseenter="this.style.boxShadow='0 4px 20px rgba(196,129,58,0.18)';this.style.borderColor='var(--accent)'" onmouseleave="this.style.boxShadow='var(--shadow)';this.style.borderColor='var(--card-border)'"` : '';
     return `
-      <div style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:6px">${icon} ${titulo}</div>
+      <div ${clickAttr} ${hoverStyle} style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:box-shadow 0.2s,border-color 0.2s">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+          <span>${icon} ${titulo}</span>
+          ${anoClick ? '<span style="font-size:10px;color:var(--accent);font-weight:500">Ver livros →</span>' : ''}
+        </div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">📋 ${livros.length} livros na sua biblioteca!</div>
         <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
           <span><span style="color:#4caf50">●</span> ${lido} lidos</span>
@@ -3909,9 +3941,9 @@ function renderLibSidebar() {
   const lidos2025 = all.filter(b => b.status === 'Lido' && b.ano === anoAtual - 1);
 
   document.getElementById('lib-sidebar').innerHTML =
-    sidePanel('❤️', 'Total', all) +
-    sidePanel('✨', `Lidos ${anoAtual}`, lidos2026) +
-    (lidos2025.length ? sidePanel('✨', `Lidos ${anoAtual-1}`, lidos2025) : '');
+    sidePanel('❤️', 'Total', all, null) +
+    sidePanel('✨', `Lidos ${anoAtual}`, lidos2026, anoAtual) +
+    (lidos2025.length ? sidePanel('✨', `Lidos ${anoAtual-1}`, lidos2025, anoAtual-1) : '');
 }
 
 function renderLibrary() {
