@@ -58,8 +58,51 @@
     height: 100vh;
     overflow-y: auto;
     z-index: 100;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), width 0.3s cubic-bezier(0.4,0,0.2,1);
   }
+
+  /* Desktop compact sidebar */
+  .sidebar.compact {
+    width: 56px;
+    min-width: 56px;
+    overflow: hidden;
+  }
+  .sidebar.compact .sidebar-header,
+  .sidebar.compact .nav-section-label,
+  .sidebar.compact .sidebar-subtitle,
+  .sidebar.compact .nav-item span:not(.nav-icon),
+  .sidebar.compact .sidebar-footer {
+    display: none;
+  }
+  .sidebar.compact .nav-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .sidebar.compact .nav-item .nav-icon {
+    width: 100%;
+    text-align: center;
+    font-size: 18px;
+  }
+  .sidebar.compact .sidebar-title-mini {
+    display: flex !important;
+    justify-content: center;
+    padding: 20px 0;
+    font-size: 22px;
+  }
+
+  .sidebar-title-mini { display: none; }
+
+  /* Overlay for mobile sidebar */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 99;
+    backdrop-filter: blur(2px);
+    transition: opacity 0.3s;
+  }
+  .sidebar-overlay.open { display: block; }
 
   .sidebar-header {
     padding: 28px 20px 20px;
@@ -140,6 +183,10 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .sidebar.compact ~ .main {
+    margin-left: 56px;
   }
 
   .top-bar {
@@ -731,7 +778,7 @@
 
   .form-textarea { resize: vertical; min-height: 80px; }
 
-  /* ── READING TRACKER ── */
+  /* ── READING TRACKER — Responsive ── */
   .tracker-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -743,6 +790,7 @@
     align-items: flex-start;
     margin-bottom: 12px;
     transition: transform 0.15s;
+    cursor: pointer;
   }
 
   .tracker-card:hover { transform: translateX(3px); }
@@ -760,13 +808,16 @@
     font-size: 20px;
   }
 
-  .tracker-info { flex: 1; }
+  .tracker-info { flex: 1; min-width: 0; }
 
   .tracker-title {
     font-size: 15px;
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .tracker-author { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
@@ -775,6 +826,14 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  @media (max-width: 480px) {
+    .tracker-card { padding: 14px 12px; gap: 12px; }
+    .tracker-cover, .tracker-card > div:first-child { width: 56px !important; min-width: 56px !important; }
+    .tracker-title { font-size: 14px; }
+    .progress-input { gap: 8px; }
+    .progress-input span { min-width: 32px; font-size: 12px; }
   }
 
   .progress-slider {
@@ -934,14 +993,41 @@
     font-size: 16px;
     align-items: center;
     justify-content: center;
+    transition: background 0.15s;
   }
+  .sidebar-toggle:hover { background: #2a2623; }
+
+  /* Desktop collapse toggle — always visible on desktop */
+  .sidebar-collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 10px 0;
+    background: transparent;
+    border: none;
+    border-top: 1px solid #2a2623;
+    color: #5a5450;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    gap: 8px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+    margin-top: auto;
+  }
+  .sidebar-collapse-btn:hover { color: var(--sidebar-text); background: var(--sidebar-hover); }
+  .sidebar.compact .sidebar-collapse-btn span { display: none; }
+  .sidebar.compact .sidebar-collapse-btn { justify-content: center; font-size: 18px; }
 
   @media (max-width: 768px) {
     /* ── Layout base ── */
-    .sidebar { transform: translateX(-100%); }
+    .sidebar { transform: translateX(-100%); width: 240px !important; min-width: 240px !important; }
     .sidebar.open { transform: translateX(0); }
-    .main { margin-left: 0; }
+    .sidebar.compact { width: 240px !important; min-width: 240px !important; }
+    .main { margin-left: 0 !important; }
     .sidebar-toggle { display: flex; }
+    .sidebar-collapse-btn { display: none; }
 
     /* ── Safe area: notch + home bar ── */
     .sidebar {
@@ -2083,10 +2169,16 @@
 <body>
 
 
-<button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+<button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Abrir menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+
+<!-- Overlay para fechar sidebar no mobile ao clicar fora -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()" aria-hidden="true"></div>
 
 <!-- SIDEBAR -->
-<aside class="sidebar" id="sidebar">
+<aside class="sidebar" id="sidebar" role="navigation" aria-label="Menu principal">
+  <!-- Mini icon shown only in compact desktop mode -->
+  <div class="sidebar-title-mini" title="Books are my happy place">📚</div>
+
   <div class="sidebar-header">
     <div class="sidebar-title">Books are my happy place</div>
     <div class="sidebar-subtitle">Luísa's Bookshelf</div>
@@ -2095,17 +2187,17 @@
   <nav class="sidebar-nav">
     <div class="nav-section">
       <div class="nav-section-label">Principal</div>
-      <div class="nav-item active" onclick="showSection('dashboard', this)">
+      <div class="nav-item active" onclick="showSection('dashboard', this)" tabindex="0" role="button" aria-label="Dashboard">
         <span class="nav-icon">🏠</span> Dashboard
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Biblioteca</div>
-      <div class="nav-item" onclick="showSection('biblioteca', this)">
+      <div class="nav-item" onclick="showSection('biblioteca', this)" tabindex="0" role="button" aria-label="Biblioteca">
         <span class="nav-icon">📚</span> biblioteca
       </div>
-      <div class="nav-item" onclick="showSection('historicos', this)">
+      <div class="nav-item" onclick="showSection('historicos', this)" tabindex="0" role="button" aria-label="Históricos">
         <span class="nav-icon">📖</span> históricos
       </div>
 
@@ -2113,43 +2205,48 @@
 
     <div class="nav-section">
       <div class="nav-section-label">Planejamento</div>
-      <div class="nav-item" onclick="showSection('planejamento', this)">
+      <div class="nav-item" onclick="showSection('planejamento', this)" tabindex="0" role="button" aria-label="Calendário">
         <span class="nav-icon">📅</span> calendário
       </div>
-      <div class="nav-item" onclick="showSection('tbr', this)">
+      <div class="nav-item" onclick="showSection('tbr', this)" tabindex="0" role="button" aria-label="TBR">
         <span class="nav-icon">🔖</span> TBR
       </div>
-      <div class="nav-item" onclick="showSection('series', this)">
+      <div class="nav-item" onclick="showSection('series', this)" tabindex="0" role="button" aria-label="Séries">
         <span class="nav-icon">🗂️</span> séries
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Organização</div>
-      <div class="nav-item" onclick="showSection('prateleiras', this)">
+      <div class="nav-item" onclick="showSection('prateleiras', this)" tabindex="0" role="button" aria-label="Prateleiras">
         <span class="nav-icon">🪞</span> prateleiras
       </div>
-      <div class="nav-item" onclick="showSection('desafios', this)">
+      <div class="nav-item" onclick="showSection('desafios', this)" tabindex="0" role="button" aria-label="Desafios">
         <span class="nav-icon">🎯</span> desafios
       </div>
-      <div class="nav-item" onclick="showSection('metas', this)">
+      <div class="nav-item" onclick="showSection('metas', this)" tabindex="0" role="button" aria-label="Metas">
         <span class="nav-icon">⭐</span> metas
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Mais</div>
-      <div class="nav-item" onclick="showSection('mensal', this)">
+      <div class="nav-item" onclick="showSection('mensal', this)" tabindex="0" role="button" aria-label="Mensal">
         <span class="nav-icon">📊</span> mensal
       </div>
-      <div class="nav-item" onclick="showSection('anual', this)">
+      <div class="nav-item" onclick="showSection('anual', this)" tabindex="0" role="button" aria-label="Anual">
         <span class="nav-icon">📊</span> anual
       </div>
-      <div class="nav-item" onclick="showSection('desejados', this)">
+      <div class="nav-item" onclick="showSection('desejados', this)" tabindex="0" role="button" aria-label="Livros Desejados">
         <span class="nav-icon">💛</span> livros desejados
       </div>
     </div>
   </nav>
+
+  <!-- Desktop collapse button -->
+  <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCompact()" aria-label="Recolher menu">
+    <span id="collapse-icon">◀</span><span id="collapse-label"> Recolher</span>
+  </button>
 </aside>
 
 <!-- ══ TELA DE LOGIN ══ -->
@@ -3793,13 +3890,79 @@ function showSection(name, el) {
 
   // close sidebar on mobile
   if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.remove('open');
+    closeSidebar();
   }
 }
 
+// ══════════════════════════════════════════════════
+// SIDEBAR CONTROLS
+// ══════════════════════════════════════════════════
+
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  const isOpen = sidebar.classList.contains('open');
+
+  if (isOpen) {
+    closeSidebar();
+  } else {
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('open');
+    if (toggleBtn) {
+      toggleBtn.textContent = '✕';
+      toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    // Trap focus: move focus to first nav item
+    const first = sidebar.querySelector('.nav-item');
+    if (first) setTimeout(() => first.focus(), 50);
+  }
 }
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const toggleBtn = document.getElementById('sidebar-toggle-btn');
+  sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+  if (toggleBtn) {
+    toggleBtn.textContent = '☰';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleSidebarCompact() {
+  if (window.innerWidth <= 768) return; // only desktop
+  const sidebar = document.getElementById('sidebar');
+  const main = document.querySelector('.main');
+  const icon = document.getElementById('collapse-icon');
+  const label = document.getElementById('collapse-label');
+  const isCompact = sidebar.classList.toggle('compact');
+
+  if (icon)  icon.textContent  = isCompact ? '▶' : '◀';
+  if (label) label.textContent = isCompact ? ' Expandir' : ' Recolher';
+
+  // Update toggle button tooltip
+  const btn = document.getElementById('sidebar-collapse-btn');
+  if (btn) btn.setAttribute('aria-label', isCompact ? 'Expandir menu' : 'Recolher menu');
+}
+
+// Keyboard nav: Enter/Space triggers nav items
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('nav-item')) {
+    e.preventDefault();
+    e.target.click();
+  }
+  // ESC closes mobile sidebar
+  if (e.key === 'Escape') {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('open') && window.innerWidth <= 768) {
+      closeSidebar();
+      document.getElementById('sidebar-toggle-btn')?.focus();
+    }
+    closePagePanel();
+  }
+});
 
 // ══════════════════════════════════════════════════
 // RENDER SECTIONS
@@ -3926,8 +4089,8 @@ function renderDashboard() {
         <button class="btn btn-ghost" onclick="showSection('historicos', document.querySelector('[onclick*=historicos]'));setTimeout(()=>switchHistTab('tracker'),50)"
           style="float:right;padding:3px 10px;font-size:11px;margin-top:-2px;background:#f5c842;border-color:#f5c842;color:#333">Ver tracker</button>
       </div>
-      <div style="display:flex;gap:14px;align-items:center">
-        <div style="width:56px;min-width:56px;aspect-ratio:2/3;border-radius:6px;overflow:hidden;background:#f0ebe3;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center">
+      <div style="display:flex;gap:14px;align-items:center;cursor:pointer" onclick="editBook(${b.id})" title="Clique para ver detalhes">
+        <div style="width:56px;min-width:56px;aspect-ratio:2/3;border-radius:6px;overflow:hidden;background:#f0ebe3;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
           ${bookCoverPlaceholder(b.titulo, b.capa, 'width:56px;min-width:56px;aspect-ratio:2/3;', b.cor)}
         </div>
         <div style="flex:1;min-width:0">
@@ -4229,16 +4392,33 @@ function saveHistorico() {
     DB.historicos.unshift(entry);
   }
 
-  // Sync progress to book
+  // Sync progress to book — Feature 3: auto-update based on latest session
   if (livroId) {
     const b = DB.books.find(x => x.id === livroId);
-    if (b && entry.progresso > b.progresso) {
-      b.progresso = entry.progresso;
-      if (entry.progresso === 100) {
+    if (b) {
+      // Always update progress if new session is ahead
+      if (entry.progresso > (b.progresso || 0)) {
+        b.progresso = entry.progresso;
+        // Update paginasLidas based on total pages and new progress
+        if (b.paginas && b.paginas > 0 && entry.progresso > 0) {
+          b.paginasLidas = Math.round((entry.progresso / 100) * b.paginas);
+        }
+      }
+      // If pages provided directly, use them if they indicate more progress
+      if (entry.paginas && b.paginas && b.paginas > 0) {
+        const derivedPct = Math.min(100, Math.round((entry.paginas / b.paginas) * 100));
+        if (derivedPct > (b.progresso || 0)) {
+          b.progresso = derivedPct;
+          b.paginasLidas = entry.paginas;
+        }
+      }
+      if (b.progresso === 100 || entry.progresso === 100) {
         b.status = 'Lido';
         b.ano = b.ano || new Date(data).getFullYear();
         b.fim = b.fim || data;
         syncMetas();
+      } else if (b.progresso > 0 && b.status !== 'Lendo') {
+        b.status = 'Lendo';
       }
     }
   }
@@ -4420,21 +4600,39 @@ function renderVisualTracker() {
   }
   const bookFilter = vtBookFilter;
 
-  // Build day lookup
+  // Build day lookup — Feature 5: correct daily pages = diff from previous session
   const dayMap = {}; // key → { progresso, paginas, sessions[] }
   const historicos = getHistoricos();
+
+  // Group sessions by book to compute daily diff correctly
+  const sessionsByBook = {};
   historicos.forEach(h => {
-    // Normalize data field — accept both string dates and timestamp IDs used as dates
-    let dataStr = h.data ? String(h.data).trim() : '';
-    // If data looks like a timestamp (all digits, >8 chars), skip — it's an ID, not a date
+    const dataStr = h.data ? String(h.data).trim() : '';
+    if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return;
+    const livroId = String(h.livroId || '');
+    if (!sessionsByBook[livroId]) sessionsByBook[livroId] = [];
+    sessionsByBook[livroId].push({ ...h, dataStr });
+  });
+
+  // For each book, sort sessions by date and compute daily pages diff
+  // paginas in each session = cumulative pages read so far (or pages read in that session only?)
+  // We treat h.paginas as "pages read during this session" (not cumulative).
+  // But if they entered page numbers cumulatively, we need diff logic.
+  // Use the simpler approach: sum all h.paginas for same day (already correct if each session = pages read that day)
+  historicos.forEach(h => {
+    const dataStr = h.data ? String(h.data).trim() : '';
     if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return;
     if (!dataStr.startsWith(String(vtYear))) return;
     if (bookFilter !== 'todos' && String(h.livroId) !== String(bookFilter)) return;
     const key = dataStr;
     if (!dayMap[key]) dayMap[key] = { progresso: 0, paginas: 0, sessions: [] };
     dayMap[key].progresso = Math.max(dayMap[key].progresso, h.progresso || 0);
-    dayMap[key].paginas  += h.paginas || 0;
-    dayMap[key].sessions.push(h);
+    // Feature 5: pages per day — each session stores how many pages were read in THAT session.
+    // Sum them per day (avoid double-counting same session)
+    if (!dayMap[key].sessions.find(s => s.id === h.id)) {
+      dayMap[key].paginas += h.paginas || 0;
+      dayMap[key].sessions.push(h);
+    }
   });
 
   // Table
@@ -4587,14 +4785,18 @@ function renderTracker() {
   document.getElementById('tracker-list').innerHTML = lendo.length === 0
     ? `<div class="empty-state"><div class="empty-icon">📖</div><p>Nenhum livro em leitura no momento.</p></div>`
     : lendo.map(b => `
-      <div class="tracker-card">
-        <div style="width:72px;min-width:72px;aspect-ratio:2/3;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f0ebe3">
+      <div class="tracker-card" role="button" tabindex="0"
+           onclick="editBook(${b.id})"
+           title="Clique para ver detalhes de ${b.titulo}"
+           style="cursor:pointer"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editBook(${b.id})}">
+        <div style="width:72px;min-width:72px;aspect-ratio:2/3;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#f0ebe3;flex-shrink:0">
           ${bookCoverPlaceholder(b.titulo, b.capa, 'width:72px;min-width:72px;aspect-ratio:2/3;', b.cor)}
         </div>
         <div class="tracker-info">
           <div class="tracker-title">${b.titulo}</div>
           <div class="tracker-author">${b.autor} ${b.serie ? '• '+b.serie : ''}</div>
-          <div class="progress-input">
+          <div class="progress-input" onclick="event.stopPropagation()">
             <input type="range" class="progress-slider" value="${b.progresso}" min="0" max="100"
               oninput="updateProgress(${b.id},this.value,this.nextElementSibling)">
             <span style="font-size:13px;font-weight:600;min-width:36px;color:var(--accent)">${b.progresso}%</span>
@@ -7394,9 +7596,22 @@ function saveInlineHistorico() {
   }
 
   const b = DB.books.find(x => x.id === bookId);
-  if (b && entry.progresso > (b.progresso||0)) {
-    b.progresso = entry.progresso;
-    if (entry.progresso === 100) {
+  if (b) {
+    // Feature 3: always update to the latest session progress
+    if (entry.progresso > (b.progresso || 0)) {
+      b.progresso = entry.progresso;
+      if (b.paginas && b.paginas > 0 && entry.progresso > 0) {
+        b.paginasLidas = Math.round((entry.progresso / 100) * b.paginas);
+      }
+    }
+    if (entry.paginas && b.paginas && b.paginas > 0) {
+      const derivedPct = Math.min(100, Math.round((entry.paginas / b.paginas) * 100));
+      if (derivedPct > (b.progresso || 0)) {
+        b.progresso = derivedPct;
+        b.paginasLidas = entry.paginas;
+      }
+    }
+    if (entry.progresso === 100 || b.progresso === 100) {
       b.status = 'Lido';
       b.ano = b.ano || new Date(data).getFullYear();
       b.fim = b.fim || data;
@@ -7405,6 +7620,8 @@ function saveInlineHistorico() {
       if (fStatus) fStatus.value = 'Lido';
       const fProg = document.getElementById('f-progresso');
       if (fProg) fProg.value = 100;
+    } else if (b.progresso > 0 && b.status !== 'Lendo') {
+      b.status = 'Lendo';
     }
   }
 
@@ -7938,10 +8155,7 @@ function closePagePanel() {
   document.body.style.overflow = '';
 }
 
-// ESC key closes panel
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closePagePanel();
-});
+// ESC key also closes panel — already handled in sidebar keydown listener above
 
 
 // ── COLOR PICKER ──
