@@ -63,32 +63,40 @@
 
   /* Desktop compact sidebar */
   .sidebar.compact {
-    width: 56px;
-    min-width: 56px;
-    overflow: hidden;
+    width: 52px;
+    min-width: 52px;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
-  .sidebar.compact .sidebar-header,
-  .sidebar.compact .nav-section-label,
-  .sidebar.compact .sidebar-subtitle,
-  .sidebar.compact .nav-item span:not(.nav-icon),
-  .sidebar.compact .sidebar-footer {
-    display: none;
-  }
+  /* Hide text elements in compact mode */
+  .sidebar.compact .sidebar-header { display: none; }
+  .sidebar.compact .nav-section-label { display: none; }
+  /* Hide the text node next to the icon — wrap in a span in HTML */
+  .sidebar.compact .nav-label { display: none; }
+  /* Center icon, remove side padding */
   .sidebar.compact .nav-item {
     justify-content: center;
-    padding: 10px 0;
+    padding: 11px 0;
+    gap: 0;
   }
   .sidebar.compact .nav-item .nav-icon {
-    width: 100%;
+    font-size: 17px;
+    width: 20px;
     text-align: center;
-    font-size: 18px;
+    flex-shrink: 0;
   }
+  /* Mini logo shown only in compact mode */
   .sidebar.compact .sidebar-title-mini {
     display: flex !important;
     justify-content: center;
-    padding: 20px 0;
-    font-size: 22px;
+    align-items: center;
+    padding: 16px 0;
+    font-size: 18px;
+    border-bottom: 1px solid #2a2623;
   }
+  /* Collapse button compact */
+  .sidebar.compact .sidebar-collapse-btn .collapse-label { display: none; }
+  .sidebar.compact .sidebar-collapse-btn { padding: 10px 0; }
 
   .sidebar-title-mini { display: none; }
 
@@ -186,7 +194,7 @@
     transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
   }
   .sidebar.compact ~ .main {
-    margin-left: 56px;
+    margin-left: 52px;
   }
 
   .top-bar {
@@ -1017,8 +1025,6 @@
     margin-top: auto;
   }
   .sidebar-collapse-btn:hover { color: var(--sidebar-text); background: var(--sidebar-hover); }
-  .sidebar.compact .sidebar-collapse-btn span { display: none; }
-  .sidebar.compact .sidebar-collapse-btn { justify-content: center; font-size: 18px; }
 
   @media (max-width: 768px) {
     /* ── Layout base ── */
@@ -2188,64 +2194,63 @@
     <div class="nav-section">
       <div class="nav-section-label">Principal</div>
       <div class="nav-item active" onclick="showSection('dashboard', this)" tabindex="0" role="button" aria-label="Dashboard">
-        <span class="nav-icon">🏠</span> Dashboard
+        <span class="nav-icon">🏠</span><span class="nav-label"> Dashboard</span>
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Biblioteca</div>
       <div class="nav-item" onclick="showSection('biblioteca', this)" tabindex="0" role="button" aria-label="Biblioteca">
-        <span class="nav-icon">📚</span> biblioteca
+        <span class="nav-icon">📚</span><span class="nav-label"> biblioteca</span>
       </div>
       <div class="nav-item" onclick="showSection('historicos', this)" tabindex="0" role="button" aria-label="Históricos">
-        <span class="nav-icon">📖</span> históricos
+        <span class="nav-icon">📖</span><span class="nav-label"> históricos</span>
       </div>
-
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Planejamento</div>
       <div class="nav-item" onclick="showSection('planejamento', this)" tabindex="0" role="button" aria-label="Calendário">
-        <span class="nav-icon">📅</span> calendário
+        <span class="nav-icon">📅</span><span class="nav-label"> calendário</span>
       </div>
       <div class="nav-item" onclick="showSection('tbr', this)" tabindex="0" role="button" aria-label="TBR">
-        <span class="nav-icon">🔖</span> TBR
+        <span class="nav-icon">🔖</span><span class="nav-label"> TBR</span>
       </div>
       <div class="nav-item" onclick="showSection('series', this)" tabindex="0" role="button" aria-label="Séries">
-        <span class="nav-icon">🗂️</span> séries
+        <span class="nav-icon">🗂️</span><span class="nav-label"> séries</span>
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Organização</div>
       <div class="nav-item" onclick="showSection('prateleiras', this)" tabindex="0" role="button" aria-label="Prateleiras">
-        <span class="nav-icon">🪞</span> prateleiras
+        <span class="nav-icon">🪞</span><span class="nav-label"> prateleiras</span>
       </div>
       <div class="nav-item" onclick="showSection('desafios', this)" tabindex="0" role="button" aria-label="Desafios">
-        <span class="nav-icon">🎯</span> desafios
+        <span class="nav-icon">🎯</span><span class="nav-label"> desafios</span>
       </div>
       <div class="nav-item" onclick="showSection('metas', this)" tabindex="0" role="button" aria-label="Metas">
-        <span class="nav-icon">⭐</span> metas
+        <span class="nav-icon">⭐</span><span class="nav-label"> metas</span>
       </div>
     </div>
 
     <div class="nav-section">
       <div class="nav-section-label">Mais</div>
       <div class="nav-item" onclick="showSection('mensal', this)" tabindex="0" role="button" aria-label="Mensal">
-        <span class="nav-icon">📊</span> mensal
+        <span class="nav-icon">📊</span><span class="nav-label"> mensal</span>
       </div>
       <div class="nav-item" onclick="showSection('anual', this)" tabindex="0" role="button" aria-label="Anual">
-        <span class="nav-icon">📊</span> anual
+        <span class="nav-icon">📈</span><span class="nav-label"> anual</span>
       </div>
       <div class="nav-item" onclick="showSection('desejados', this)" tabindex="0" role="button" aria-label="Livros Desejados">
-        <span class="nav-icon">💛</span> livros desejados
+        <span class="nav-icon">💛</span><span class="nav-label"> livros desejados</span>
       </div>
     </div>
   </nav>
 
   <!-- Desktop collapse button -->
   <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" onclick="toggleSidebarCompact()" aria-label="Recolher menu">
-    <span id="collapse-icon">◀</span><span id="collapse-label"> Recolher</span>
+    <span id="collapse-icon">◀</span><span class="collapse-label" id="collapse-label"> Recolher</span>
   </button>
 </aside>
 
@@ -3934,17 +3939,14 @@ function closeSidebar() {
 function toggleSidebarCompact() {
   if (window.innerWidth <= 768) return; // only desktop
   const sidebar = document.getElementById('sidebar');
-  const main = document.querySelector('.main');
-  const icon = document.getElementById('collapse-icon');
-  const label = document.getElementById('collapse-label');
+  const icon    = document.getElementById('collapse-icon');
+  const label   = document.getElementById('collapse-label');
+  const btn     = document.getElementById('sidebar-collapse-btn');
   const isCompact = sidebar.classList.toggle('compact');
 
   if (icon)  icon.textContent  = isCompact ? '▶' : '◀';
   if (label) label.textContent = isCompact ? ' Expandir' : ' Recolher';
-
-  // Update toggle button tooltip
-  const btn = document.getElementById('sidebar-collapse-btn');
-  if (btn) btn.setAttribute('aria-label', isCompact ? 'Expandir menu' : 'Recolher menu');
+  if (btn)   btn.setAttribute('aria-label', isCompact ? 'Expandir menu' : 'Recolher menu');
 }
 
 // Keyboard nav: Enter/Space triggers nav items
