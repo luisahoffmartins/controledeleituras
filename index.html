@@ -2285,6 +2285,10 @@
         ⬆️ Importar
         <input type="file" accept=".json" onchange="importarDados(this)" style="display:none">
       </label>
+      <label class="btn btn-ghost top-action-desktop" style="cursor:pointer;margin:0" title="Importar lista de leituras (JSON compatível)">
+        📚 Importar leituras
+        <input type="file" accept=".json" onchange="importarLeituras(this)" style="display:none">
+      </label>
       <button class="btn btn-ghost top-action-desktop" onclick="openModal()">+ Adicionar livro</button>
 
       <!-- Menu mobile com ⋯ -->
@@ -2295,6 +2299,10 @@
           <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary);box-sizing:border-box">
             ⬆️ Importar
             <input type="file" accept=".json" onchange="importarDados(this);toggleMobileMenu()" style="display:none">
+          </label>
+          <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary);box-sizing:border-box">
+            📚 Importar leituras
+            <input type="file" accept=".json" onchange="importarLeituras(this);toggleMobileMenu()" style="display:none">
           </label>
         </div>
       </div>
@@ -7969,6 +7977,188 @@ function importarDados(input) {
   };
   reader.readAsText(file);
   // Reset input so same file can be imported again if needed
+  input.value = '';
+}
+
+
+// ══════════════════════════════════════════════════
+// IMPORTAR LEITURAS — formato JSON compatível
+// ══════════════════════════════════════════════════
+
+function importarLeituras(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const dados = JSON.parse(e.target.result);
+
+      // Validar formato: deve ter array "livros"
+      if (!dados.livros || !Array.isArray(dados.livros)) {
+        alert('❌ Arquivo inválido.\n\nEste importador aceita o formato de leituras com campo "livros".\nPara restaurar um backup completo, use o botão "⬆️ Importar".');
+        input.value = '';
+        return;
+      }
+
+      function normalizarTipo(t) {
+        if (!t) return 'e-book';
+        const tl = t.toLowerCase();
+        if (tl.includes('audio')) return 'audiobook';
+        if (tl.includes('físico') || tl.includes('fisico')) return 'físico';
+        if (tl.includes('ebook') || tl.includes('e-book')) return 'e-book';
+        return t;
+      }
+
+      function normalizarData(d) {
+        if (!d) return null;
+        d = String(d).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+        const m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+        return null;
+      }
+
+      function resolverDesafio(nome) {
+        if (!nome) return null;
+        let d = (DB.desafios || []).find(x => x.nome.toLowerCase() === nome.toLowerCase());
+        if (!d) {
+          const novoId = 'd_imp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+          d = { id: novoId, nome, capa: '', autor: '', genero: '' };
+          DB.desafios = DB.desafios || [];
+          DB.desafios.push(d);
+        }
+        return d.id;
+      }
+
+      const livros = dados.livros;
+      let adicionados = 0, atualizados = 0, camposPreenchidos = 0, ignorados = 0;
+      const detalhes = [];
+
+      livros.forEach(livro => {
+        if (!livro.titulo) return;
+
+        const titulo = livro.titulo.trim();
+        const autor  = livro.autor ? livro.autor.trim() : '';
+
+        let existente = DB.books.find(b =>
+          b.titulo.toLowerCase() === titulo.toLowerCase() &&
+          (!autor || !b.autor || b.autor.toLowerCase() === autor.toLowerCase())
+        );
+        if (!existente) {
+          existente = DB.books.find(b => b.titulo.toLowerCase() === titulo.toLowerCase());
+        }
+
+        const dataInicio = normalizarData(livro.data_inicio);
+        const dataFim    = normalizarData(livro.data_fim);
+        const tipo       = normalizarTipo(livro.tipo || livro.formato);
+        const genero     = Array.isArray(livro.generos)
+                            ? livro.generos.join(', ')
+                            : (livro.genero || '');
+        const paginas    = livro.paginas ? parseInt(livro.paginas) : null;
+        const nota       = livro.nota != null ? parseFloat(livro.nota) : null;
+        const serie      = livro.serie || null;
+        const serieNum   = livro.numero_serie ? parseInt(livro.numero_serie) : null;
+        const ano        = dataFim ? new Date(dataFim).getFullYear()
+                         : dataInicio ? new Date(dataInicio).getFullYear()
+                         : null;
+
+        const desafioNomes = Array.isArray(livro.desafios) ? livro.desafios : [];
+        const desafioIds   = desafioNomes.map(resolverDesafio).filter(Boolean);
+
+        if (existente) {
+          const campos = [];
+
+          if (!existente.autor    && autor)          { existente.autor    = autor;              campos.push('autor'); }
+          if (!existente.tipo     && tipo)           { existente.tipo     = tipo;               campos.push('tipo'); }
+          if (!existente.genero   && genero)         { existente.genero   = genero;             campos.push('gênero'); }
+          if (!existente.paginas  && paginas)        { existente.paginas  = paginas;            campos.push('páginas'); }
+          if (existente.nota == null && nota != null){ existente.nota     = Math.round(nota);   campos.push('avaliação'); }
+          if (!existente.inicio   && dataInicio)     { existente.inicio   = dataInicio;         campos.push('data início'); }
+          if (!existente.fim      && dataFim)        { existente.fim      = dataFim;            campos.push('data fim'); }
+          if (!existente.serie    && serie)          { existente.serie    = serie;              campos.push('série'); }
+          if (!existente.serieNum && serieNum)       { existente.serieNum = serieNum;           campos.push('nº série'); }
+          if (!existente.ano      && ano)            { existente.ano      = ano;                campos.push('ano'); }
+
+          const desafiosAtuais = existente.desafio || [];
+          const novosDesafios  = desafioIds.filter(id => !desafiosAtuais.includes(id));
+          if (novosDesafios.length > 0) {
+            existente.desafio = [...desafiosAtuais, ...novosDesafios];
+            campos.push('desafios');
+          }
+
+          if (campos.length > 0) {
+            atualizados++;
+            camposPreenchidos += campos.length;
+            detalhes.push('✏️ "' + titulo + '" → preencheu: ' + campos.join(', '));
+          } else {
+            ignorados++;
+            detalhes.push('✓ "' + titulo + '" → já completo, nada alterado');
+          }
+        } else {
+          const status = dataFim ? 'Lido' : 'Quero ler';
+          DB.books.push({
+            id:        DB.nextId++,
+            titulo,
+            autor,
+            status,
+            tipo:      tipo || 'e-book',
+            genero,
+            paginas,
+            progresso: status === 'Lido' ? 100 : 0,
+            nota:      nota != null ? Math.round(nota) : null,
+            inicio:    dataInicio,
+            fim:       dataFim,
+            serie,
+            serieNum,
+            ano,
+            desafio:   desafioIds,
+            meta:      [],
+            favorito:  false,
+            desejado:  false,
+            tenho:     false,
+            capa:      null,
+            cor:       null,
+            notas:     '',
+            sinopse:   '',
+            tropes:    [],
+            prateleira:'',
+            tbrMes:    null
+          });
+          adicionados++;
+          detalhes.push('➕ "' + titulo + '" → adicionado');
+        }
+      });
+
+      syncMetas();
+      saveData(DB);
+      renderDashboard();
+
+      const linhasDetalhe = detalhes.map(d =>
+        '<div style="padding:5px 0;border-bottom:1px solid var(--card-border);font-size:12px">' + d + '</div>'
+      ).join('');
+
+      openPagePanel('📚 Importação de Leituras', `
+        <div style="padding:20px">
+          <div style="background:var(--accent-green-light);color:var(--accent-green);border-radius:var(--radius);padding:16px;margin-bottom:16px;font-size:13px;line-height:2;font-weight:500">
+            ➕ ${adicionados} livro(s) adicionado(s)<br>
+            ✏️ ${atualizados} livro(s) com campos preenchidos (${camposPreenchidos} campo(s) no total)<br>
+            ✓ ${ignorados} já estavam completos<br>
+            <strong>Total processado: ${livros.length} livros</strong>
+          </div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em">Detalhes</div>
+          <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:8px">
+            ${linhasDetalhe}
+          </div>
+        </div>
+      `, '<button class="btn btn-primary" onclick="closePagePanel()">✓ Fechar</button>');
+
+    } catch (err) {
+      alert('❌ Erro ao processar o arquivo.\n\n' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
   input.value = '';
 }
 
