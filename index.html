@@ -2459,13 +2459,36 @@
             <input class="form-input" id="hf-data" type="date">
           </div>
           <div class="form-group">
-            <label class="form-label">Progresso (%)</label>
-            <input class="form-input" id="hf-progresso" type="number" min="0" max="100" placeholder="0" oninput="calcHistPagesFromProgress(this)">
+            <label class="form-label">Página atual</label>
+            <input class="form-input" id="hf-pagina-atual" type="number" min="0" placeholder="Ex: 145" oninput="calcPaginaAtual(this)">
           </div>
-          <div class="form-group">
-            <label class="form-label">Páginas lidas</label>
-            <input class="form-input" id="hf-paginas" type="number" min="0" placeholder="0" oninput="calcHistProgressFromPages(this)">
+          <!-- Painel de resumo automático -->
+          <div class="form-group full" id="hf-pagina-resumo" style="display:none">
+            <div style="background:var(--accent-light);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Página anterior</span>
+                <span style="font-size:15px;font-weight:600;color:var(--text-secondary)" id="hf-resumo-anterior">—</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Página atual</span>
+                <span style="font-size:15px;font-weight:600;color:var(--accent)" id="hf-resumo-atual">—</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Lidas hoje</span>
+                <span style="font-size:15px;font-weight:700;color:var(--accent-green)" id="hf-resumo-lidas">—</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)">Restantes</span>
+                <span style="font-size:15px;font-weight:600;color:var(--text-secondary)" id="hf-resumo-restantes">—</span>
+              </div>
+            </div>
+            <div id="hf-pagina-aviso" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-rose-light);border:1px solid var(--accent-rose);border-radius:var(--radius-sm);font-size:12px;color:var(--accent-rose)">
+              ⚠️ A página atual é menor que a anterior — verifique o valor informado.
+            </div>
           </div>
+          <!-- Campos ocultos usados pelo saveHistorico -->
+          <input type="hidden" id="hf-progresso">
+          <input type="hidden" id="hf-paginas">
           <div class="form-group full">
             <label class="form-label" style="display:flex;justify-content:space-between;align-items:center">
               Como estou me sentindo
@@ -3862,6 +3885,58 @@ function toggleSyncLogin() {
 let DB = loadData();
 
 // ══════════════════════════════════════════════════
+// MIGRAÇÃO: paginaAtual nas sessões existentes
+// Roda uma única vez; marca DB.migratedPaginaAtual = true após concluir.
+// Lógica: ordena sessões por data (ASC) para cada livro e reconstrói
+// a página acumulada somando as páginas lidas de cada sessão.
+// ══════════════════════════════════════════════════
+(function migratePaginaAtual() {
+  if (DB.migratedPaginaAtual) return; // já migrado
+
+  let touched = false;
+
+  // Agrupar sessões por livro
+  const porLivro = {};
+  DB.historicos.forEach(h => {
+    if (!h.livroId) return;
+    if (!porLivro[h.livroId]) porLivro[h.livroId] = [];
+    porLivro[h.livroId].push(h);
+  });
+
+  Object.values(porLivro).forEach(sessoes => {
+    // Ordenar do mais antigo para o mais recente
+    sessoes.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    let acumulado = 0;
+    sessoes.forEach(h => {
+      if (h.paginaAtual != null) {
+        // Sessão já tem paginaAtual — usar como base acumulada
+        acumulado = h.paginaAtual;
+      } else if (h.paginas && h.paginas > 0) {
+        // Sessão antiga com "páginas lidas nessa sessão" — somar ao acumulado
+        acumulado += h.paginas;
+        h.paginaAtual = acumulado;
+        touched = true;
+      } else if (h.progresso && h.progresso > 0) {
+        // Fallback: derivar de progresso % + total de páginas do livro
+        const livro = DB.books.find(b => b.id === h.livroId);
+        if (livro && livro.paginas) {
+          const derivada = Math.round((h.progresso / 100) * livro.paginas);
+          if (derivada > acumulado) {
+            acumulado = derivada;
+            h.paginaAtual = acumulado;
+            touched = true;
+          }
+        }
+      }
+    });
+  });
+
+  DB.migratedPaginaAtual = true;
+  if (touched) saveData(DB);
+})();
+
+// ══════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════
 
@@ -4311,17 +4386,11 @@ function openHistModal(id) {
     if (h && h.livroId) hSelB.value = h.livroId;
   }
 
-    // Ao trocar o livro, recalcula % ou páginas se um deles já estiver preenchido
-    hSelB.addEventListener("change", () => {
-      const hfProg2 = panel.querySelector("#hf-progresso");
-      const hfPag2  = panel.querySelector("#hf-paginas");
-      if (!hfProg2 || !hfPag2) return;
-      if (hfPag2.value && parseInt(hfPag2.value) > 0) {
-        calcHistProgressFromPages(hfPag2);
-      } else if (hfProg2.value && parseFloat(hfProg2.value) > 0) {
-        calcHistPagesFromProgress(hfProg2);
-      }
-    });
+  // Ao trocar o livro, recalcula resumo se página atual já preenchida
+  hSelB.addEventListener('change', () => {
+    const paEl = panel.querySelector('#hf-pagina-atual');
+    if (paEl && paEl.value) calcPaginaAtual(paEl);
+  });
 
   // Sentimentos chips
   const chipsEl = panel.querySelector('#hf-sentimentos');
@@ -4337,21 +4406,22 @@ function openHistModal(id) {
   }
 
   // Remaining fields
-  const hfData = panel.querySelector('#hf-data');
-  const hfProg = panel.querySelector('#hf-progresso');
-  const hfCom  = panel.querySelector('#hf-comentario');
-  const hfPag  = panel.querySelector('#hf-paginas');
+  const hfData    = panel.querySelector('#hf-data');
+  const hfCom     = panel.querySelector('#hf-comentario');
+  const hfPagAtual = panel.querySelector('#hf-pagina-atual');
 
   if (h) {
-    if (hfData) hfData.value = h.data || '';
-    if (hfProg) hfProg.value = h.progresso || 0;
-    if (hfCom)  hfCom.value  = h.comentario || '';
-    if (hfPag)  hfPag.value  = h.paginas || '';
+    if (hfData)     hfData.value     = h.data || '';
+    if (hfCom)      hfCom.value      = h.comentario || '';
+    // Restore paginaAtual from saved entry if available
+    if (hfPagAtual) {
+      hfPagAtual.value = h.paginaAtual != null ? h.paginaAtual : (h.paginas || '');
+      if (hfPagAtual.value) calcPaginaAtual(hfPagAtual);
+    }
   } else {
-    if (hfData) hfData.value = new Date().toISOString().split('T')[0];
-    if (hfProg) hfProg.value = '';
-    if (hfCom)  hfCom.value  = '';
-    if (hfPag)  hfPag.value  = '';
+    if (hfData)     hfData.value     = new Date().toISOString().split('T')[0];
+    if (hfCom)      hfCom.value      = '';
+    if (hfPagAtual) hfPagAtual.value = '';
   }
 }
 
@@ -4362,6 +4432,64 @@ function toggleSent(el) {
 function closeHistModal() { closePagePanel(); }
 
 function closeHistModalOverlay(e) {}
+
+// ── CÁLCULO: PÁGINA ATUAL → páginas lidas hoje + restantes ──
+function calcPaginaAtual(el) {
+  const panel = el.closest('#page-panel-body') || document;
+  const livroEl   = panel.querySelector('#hf-livro');
+  const resumoEl  = panel.querySelector('#hf-pagina-resumo');
+  const avisoEl   = panel.querySelector('#hf-pagina-aviso');
+  const elAnterior   = panel.querySelector('#hf-resumo-anterior');
+  const elAtual      = panel.querySelector('#hf-resumo-atual');
+  const elLidas      = panel.querySelector('#hf-resumo-lidas');
+  const elRestantes  = panel.querySelector('#hf-resumo-restantes');
+  const hfPaginas    = panel.querySelector('#hf-paginas');
+  const hfProgresso  = panel.querySelector('#hf-progresso');
+
+  const paginaAtual = parseInt(el.value);
+  if (isNaN(paginaAtual) || el.value === '') {
+    if (resumoEl) resumoEl.style.display = 'none';
+    return;
+  }
+
+  // Find book
+  const livroId = livroEl ? parseInt(livroEl.value) : null;
+  const livro = livroId ? DB.books.find(b => b.id === livroId) : null;
+  const totalPaginas = livro?.paginas || 0;
+
+  // Find previous page from most recent session for this book
+  let paginaAnterior = 0;
+  if (livroId) {
+    const sessoesDoLivro = DB.historicos
+      .filter(h => h.livroId === livroId && !histEditingId || (h.livroId === livroId && h.id !== histEditingId))
+      .sort((a, b) => new Date(b.data) - new Date(a.data));
+    if (sessoesDoLivro.length > 0) {
+      const ultima = sessoesDoLivro[0];
+      paginaAnterior = ultima.paginaAtual != null ? ultima.paginaAtual : (ultima.paginas || 0);
+    }
+    // If book has paginasLidas saved and no sessions exist, use it
+    if (paginaAnterior === 0 && livro?.paginasLidas) paginaAnterior = livro.paginasLidas;
+  }
+
+  // Calculations
+  const inconsistente = paginaAtual < paginaAnterior;
+  const lidasHoje = inconsistente ? 0 : Math.max(0, paginaAtual - paginaAnterior);
+  const restantes = totalPaginas > 0 ? Math.max(0, totalPaginas - paginaAtual) : null;
+
+  // Update hidden fields so saveHistorico still works
+  if (hfPaginas)   hfPaginas.value   = lidasHoje;
+  if (hfProgresso) hfProgresso.value = totalPaginas > 0
+    ? Math.min(100, Math.round((paginaAtual / totalPaginas) * 100))
+    : '';
+
+  // Show summary panel
+  if (resumoEl) resumoEl.style.display = 'block';
+  if (elAnterior)  elAnterior.textContent  = paginaAnterior > 0 ? `p. ${paginaAnterior}` : '—';
+  if (elAtual)     elAtual.textContent     = `p. ${paginaAtual}`;
+  if (elLidas)     elLidas.textContent     = inconsistente ? '—' : `${lidasHoje} pág.`;
+  if (elRestantes) elRestantes.textContent = restantes != null ? `${restantes} pág.` : '—';
+  if (avisoEl)     avisoEl.style.display   = inconsistente ? 'block' : 'none';
+}
 
 function saveHistorico() {
   // Look inside page-panel-body first (since form is cloned there), fallback to document
@@ -4384,6 +4512,7 @@ function saveHistorico() {
     progresso: parseInt(_pv('hf-progresso')) || 0,
     comentario: _pv('hf-comentario').trim(),
     paginas: parseInt(_pv('hf-paginas')) || 0,
+    paginaAtual: parseInt(_pv('hf-pagina-atual')) || null,
     sentimentos,
   };
 
@@ -4471,10 +4600,13 @@ function openHistDetail(id) {
         <span style="color:var(--text-muted);width:110px;min-width:110px">📖 Livro</span>
         <span style="font-weight:500">${livro.titulo}</span>
       </div>` : ''}
-      ${h.paginas ? `
-      <div style="display:flex;gap:12px;font-size:13px;align-items:center">
+      ${h.paginas || h.paginaAtual ? `
+      <div style="display:flex;gap:12px;font-size:13px;align-items:flex-start">
         <span style="color:var(--text-muted);width:110px;min-width:110px">📄 Páginas</span>
-        <span style="font-weight:500">${h.paginas} páginas lidas</span>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${h.paginaAtual != null ? `<span style="font-weight:500">Parou na p. <strong>${h.paginaAtual}</strong></span>` : ''}
+          ${h.paginas ? `<span style="color:var(--accent-green);font-weight:500">+${h.paginas} páginas lidas nesta sessão</span>` : ''}
+        </div>
       </div>` : ''}
     ${h.comentario ? `
       <div style="display:flex;gap:12px;font-size:13px">
