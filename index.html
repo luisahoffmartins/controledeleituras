@@ -3388,6 +3388,17 @@ function migrateDB(d) {
   if (d.metas)   d.metas   = d.metas.map(m => ({ ...m, id: typeof m.id==='number'?'m'+m.id:m.id, emoji:m.emoji||'📚', capa:m.capa||'', ano:m.ano||2026 }));
   if (d.desafios) d.desafios = d.desafios.map(x => ({ ...x, id: typeof x.id==='number'?'d'+x.id:x.id, capa:x.capa||'', autor:x.autor||'', genero:x.genero||'' }));
 
+  // Fix: ano must come from fim date only — clear ano for books with no fim
+  d.books.forEach(b => {
+    if (b.fim) {
+      // Ensure ano matches fim year (corrects any mismatch)
+      b.ano = new Date(b.fim).getFullYear();
+    } else {
+      // No fim date = no year association
+      b.ano = null;
+    }
+  });
+
   d.version = DB_VERSION;
   return d;
 }
@@ -4204,8 +4215,8 @@ function saveHistorico() {
       }
       if (b.progresso === 100 || entry.progresso === 100) {
         b.status = 'Lido';
-        b.ano = b.ano || new Date(data).getFullYear();
         b.fim = b.fim || data;
+        b.ano = b.ano || new Date(b.fim).getFullYear();
         syncMetas();
       } else if (b.progresso > 0 && b.status !== 'Lendo') {
         b.status = 'Lendo';
@@ -4611,8 +4622,8 @@ function updateProgress(id, val, span) {
     b.progresso = parseInt(val);
     if (parseInt(val) === 100) {
       b.status = 'Lido';
-      b.ano = b.ano || new Date().getFullYear();
       b.fim = b.fim || new Date().toISOString().split('T')[0];
+      b.ano = b.ano || new Date(b.fim).getFullYear();
       syncMetas();
     }
     saveData(DB);
@@ -7469,8 +7480,8 @@ function saveInlineHistorico() {
     }
     if (entry.progresso === 100 || b.progresso === 100) {
       b.status = 'Lido';
-      b.ano = b.ano || new Date(data).getFullYear();
       b.fim = b.fim || data;
+      b.ano = b.ano || new Date(b.fim).getFullYear();
       syncMetas();
       const fStatus = document.getElementById('f-status');
       if (fStatus) fStatus.value = 'Lido';
@@ -7816,7 +7827,7 @@ function saveBook() {
   const fim = document.getElementById('f-fim').value;
   const inicio = document.getElementById('f-inicio').value;
   const progresso = parseInt(document.getElementById('f-progresso').value) || 0;
-  const ano = fim ? new Date(fim).getFullYear() : (status === 'Lido' ? new Date().getFullYear() : null);
+  const ano = fim ? new Date(fim).getFullYear() : null;
 
   const _gv = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
   const _gc = id => { const el=document.getElementById(id); return el?el.checked:false; };
