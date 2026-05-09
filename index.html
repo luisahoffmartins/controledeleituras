@@ -4457,12 +4457,12 @@ function calcPaginaAtual(el) {
   const livro = livroId ? DB.books.find(b => b.id === livroId) : null;
   const totalPaginas = livro?.paginas || 0;
 
-  // Find previous page from most recent session for this book
+  // Find previous page from most recent session for this book (excluding current editing session)
   let paginaAnterior = 0;
   if (livroId) {
     const sessoesDoLivro = DB.historicos
-      .filter(h => h.livroId === livroId && !histEditingId || (h.livroId === livroId && h.id !== histEditingId))
-      .sort((a, b) => new Date(b.data) - new Date(a.data));
+      .filter(h => h.livroId === livroId && h.id !== histEditingId)
+      .sort((a, b) => new Date(b.data) - new Date(a.data) || b.id - a.id);
     if (sessoesDoLivro.length > 0) {
       const ultima = sessoesDoLivro[0];
       paginaAnterior = ultima.paginaAtual != null ? ultima.paginaAtual : (ultima.paginas || 0);
