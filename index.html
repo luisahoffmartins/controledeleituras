@@ -3388,13 +3388,11 @@ function migrateDB(d) {
   if (d.metas)   d.metas   = d.metas.map(m => ({ ...m, id: typeof m.id==='number'?'m'+m.id:m.id, emoji:m.emoji||'📚', capa:m.capa||'', ano:m.ano||2026 }));
   if (d.desafios) d.desafios = d.desafios.map(x => ({ ...x, id: typeof x.id==='number'?'d'+x.id:x.id, capa:x.capa||'', autor:x.autor||'', genero:x.genero||'' }));
 
-  // Fix: ano must come from fim date only — clear ano for books with no fim
+  // Fix: ano must come from fim date only — clear ano for books without fim
   d.books.forEach(b => {
     if (b.fim) {
-      // Ensure ano matches fim year (corrects any mismatch)
       b.ano = new Date(b.fim).getFullYear();
     } else {
-      // No fim date = no year association
       b.ano = null;
     }
   });
@@ -3924,23 +3922,26 @@ function renderLibSidebar() {
   const anoAtual = new Date().getFullYear();
 
   function sidePanel(icon, titulo, livros, anoClick) {
-    const lido    = livros.filter(b => b.status === 'Lido').length;
-    const lendo   = livros.filter(b => b.status === 'Lendo').length;
-    const tbr     = livros.filter(b => b.status === 'Quero ler' || b.status === 'Quero muito ler').length;
-    const fav     = livros.filter(b => b.favorito).length;
-    const aband   = livros.filter(b => b.status === 'Abandonado').length;
-    const fisico  = livros.filter(b => b.tipo === 'físico').length;
-    const ebook   = livros.filter(b => b.tipo === 'e-book').length;
-    const audio   = livros.filter(b => b.tipo === 'audiobook').length;
-    const clickAttr = anoClick ? `onclick="goToLidosAno(${anoClick})" style="cursor:pointer" title="Ver livros lidos em ${anoClick}"` : '';
+    const lido   = livros.filter(b => b.status === 'Lido').length;
+    const lendo  = livros.filter(b => b.status === 'Lendo').length;
+    const tbr    = livros.filter(b => b.status === 'Quero ler' || b.status === 'Quero muito ler').length;
+    const fav    = livros.filter(b => b.favorito).length;
+    const aband  = livros.filter(b => b.status === 'Abandonado').length;
+    const fisico = livros.filter(b => b.tipo === 'físico').length;
+    const ebook  = livros.filter(b => b.tipo === 'e-book').length;
+    const audio  = livros.filter(b => b.tipo === 'audiobook').length;
+    const clickAttr  = anoClick ? `onclick="goToLidosAno(${anoClick})" style="cursor:pointer" title="Ver livros lidos em ${anoClick}"` : '';
     const hoverStyle = anoClick ? `onmouseenter="this.style.boxShadow='0 4px 20px rgba(196,129,58,0.18)';this.style.borderColor='var(--accent)'" onmouseleave="this.style.boxShadow='var(--shadow)';this.style.borderColor='var(--card-border)'"` : '';
+    const subtitulo  = anoClick
+      ? `📋 ${lido} livros lidos em ${anoClick}`
+      : `📋 ${livros.length} livros na sua biblioteca!`;
     return `
       <div ${clickAttr} ${hoverStyle} style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:box-shadow 0.2s,border-color 0.2s">
         <div style="font-size:13px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
           <span>${icon} ${titulo}</span>
           ${anoClick ? '<span style="font-size:10px;color:var(--accent);font-weight:500">Ver livros →</span>' : ''}
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">📋 ${livros.length} livros na sua biblioteca!</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${subtitulo}</div>
         <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
           <span><span style="color:#4caf50">●</span> ${lido} lidos</span>
           <span><span style="color:#ffc107">●</span> ${lendo} lendo</span>
@@ -3956,13 +3957,14 @@ function renderLibSidebar() {
       </div>`;
   }
 
-  const lidos2026 = all.filter(b => b.status === 'Lido' && b.ano === anoAtual);
-  const lidos2025 = all.filter(b => b.status === 'Lido' && b.ano === anoAtual - 1);
+  // Agrupa por b.ano (derivado exclusivamente da data fim — nunca ambíguo)
+  const lidos2026 = all.filter(b => b.ano === anoAtual);
+  const lidos2025 = all.filter(b => b.ano === anoAtual - 1);
 
   document.getElementById('lib-sidebar').innerHTML =
     sidePanel('❤️', 'Total', all, null) +
-    sidePanel('✨', `Lidos ${anoAtual}`, lidos2026, anoAtual) +
-    (lidos2025.length ? sidePanel('✨', `Lidos ${anoAtual-1}`, lidos2025, anoAtual-1) : '');
+    (lidos2026.length ? sidePanel('✨', `Lidos ${anoAtual}`,     lidos2026, anoAtual)     : '') +
+    (lidos2025.length ? sidePanel('✨', `Lidos ${anoAtual - 1}`, lidos2025, anoAtual - 1) : '');
 }
 
 function renderLibrary() {
