@@ -2280,12 +2280,12 @@
         <span class="sync-indicator" id="sync-dot"></span>
         <span id="sync-label" style="font-size:12px;color:var(--text-secondary)">Sincronizando...</span>
       </div>
-      <button class="btn btn-ghost top-action-desktop" onclick="exportarDados()" title="Exportar todos os dados para backup">⬇️ Exportar</button>
-      <label class="btn btn-ghost top-action-desktop" style="cursor:pointer;margin:0" title="Importar dados de um backup">
-        ⬆️ Importar
+      <button class="btn btn-ghost top-action-desktop" onclick="exportarDados()" title="Exportar todos os dados para backup">⬇️ Exportar backup</button>
+      <label class="btn btn-ghost top-action-desktop" style="cursor:pointer;margin:0" title="Restaurar backup completo do sistema">
+        ⬆️ Restaurar backup
         <input type="file" accept=".json" onchange="importarDados(this)" style="display:none">
       </label>
-      <label class="btn btn-ghost top-action-desktop" style="cursor:pointer;margin:0" title="Importar lista de leituras (JSON compatível)">
+      <label class="btn btn-primary top-action-desktop" style="cursor:pointer;margin:0" title="Importar lista de leituras (JSON compatível)">
         📚 Importar leituras
         <input type="file" accept=".json" onchange="importarLeituras(this)" style="display:none">
       </label>
@@ -2295,12 +2295,12 @@
       <div style="position:relative" class="top-action-mobile">
         <button class="btn btn-ghost" onclick="toggleMobileMenu()" style="min-width:44px;justify-content:center">⋯</button>
         <div id="mobile-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);box-shadow:var(--shadow-lg);min-width:160px;z-index:300;overflow:hidden">
-          <button onclick="exportarDados();toggleMobileMenu()" style="width:100%;padding:12px 16px;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary)">⬇️ Exportar</button>
+          <button onclick="exportarDados();toggleMobileMenu()" style="width:100%;padding:12px 16px;text-align:left;background:none;border:none;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary)">⬇️ Exportar backup</button>
           <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary);box-sizing:border-box">
-            ⬆️ Importar
+            ⬆️ Restaurar backup
             <input type="file" accept=".json" onchange="importarDados(this);toggleMobileMenu()" style="display:none">
           </label>
-          <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--text-primary);box-sizing:border-box">
+          <label style="width:100%;padding:12px 16px;display:block;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--accent);font-weight:500;box-sizing:border-box">
             📚 Importar leituras
             <input type="file" accept=".json" onchange="importarLeituras(this);toggleMobileMenu()" style="display:none">
           </label>
@@ -7926,7 +7926,12 @@ function importarDados(input) {
 
       // Validate it's a valid backup
       if (!dados.books || !Array.isArray(dados.books)) {
-        alert('❌ Arquivo inválido. Certifique-se de usar um backup exportado deste sistema.');
+        // Check if it looks like a leituras JSON
+        if (dados.livros && Array.isArray(dados.livros)) {
+          alert('⚠️ Este parece ser um arquivo de leituras, não um backup completo.\n\nUse o botão "📚 Importar leituras" para carregar este arquivo.');
+        } else {
+          alert('❌ Arquivo inválido. Certifique-se de usar um backup exportado deste sistema.');
+        }
         return;
       }
 
