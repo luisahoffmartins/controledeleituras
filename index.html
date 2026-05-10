@@ -3978,6 +3978,18 @@ function getFilteredBooks() {
     b.titulo.toLowerCase().includes(q) ||
     (b.autor || '').toLowerCase().includes(q)
   );
+
+  // Ordena por data de finalização (mais recente primeiro).
+  // Livros sem fim ficam no final, ordenados por início (também desc).
+  books = [...books].sort((a, b) => {
+    const da = a.fim || a.inicio || '';
+    const db = b.fim || b.inicio || '';
+    if (da && db) return db.localeCompare(da);
+    if (da) return -1;  // a tem data, b não → a vem antes
+    if (db) return 1;   // b tem data, a não → b vem antes
+    return 0;
+  });
+
   return books;
 }
 
@@ -4018,29 +4030,65 @@ function renderLibSidebar() {
     const fisico = livros.filter(b => b.tipo === 'físico').length;
     const ebook  = livros.filter(b => b.tipo === 'e-book').length;
     const audio  = livros.filter(b => b.tipo === 'audiobook').length;
-    const clickAttr  = anoClick ? `onclick="goToLidosAno(${anoClick})" style="cursor:pointer" title="Ver livros lidos em ${anoClick}"` : '';
-    const hoverStyle = anoClick ? `onmouseenter="this.style.boxShadow='0 4px 20px rgba(196,129,58,0.18)';this.style.borderColor='var(--accent)'" onmouseleave="this.style.boxShadow='var(--shadow)';this.style.borderColor='var(--card-border)'"` : '';
-    const subtitulo  = anoClick
-      ? `📋 ${lido} livros lidos em ${anoClick}`
-      : `📋 ${livros.length} livros na sua biblioteca!`;
+
+    const clickAttr  = anoClick
+      ? `onclick="goToLidosAno(${anoClick})" title="Ver livros lidos em ${anoClick}"`
+      : '';
+    const cursorStyle = anoClick ? 'cursor:pointer' : '';
+    const subtitulo   = anoClick
+      ? `${lido} livro${lido !== 1 ? 's' : ''} lido${lido !== 1 ? 's' : ''} em ${anoClick}`
+      : `${livros.length} livro${livros.length !== 1 ? 's' : ''} na biblioteca`;
+
     return `
-      <div ${clickAttr} ${hoverStyle} style="background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:box-shadow 0.2s,border-color 0.2s">
-        <div style="font-size:13px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-          <span>${icon} ${titulo}</span>
-          ${anoClick ? '<span style="font-size:10px;color:var(--accent);font-weight:500">Ver livros →</span>' : ''}
+      <div ${clickAttr}
+        style="${cursorStyle};background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:box-shadow 0.2s,border-color 0.2s;margin-bottom:0"
+        ${anoClick ? `onmouseenter="this.style.boxShadow='0 4px 20px rgba(196,129,58,0.18)';this.style.borderColor='var(--accent)'" onmouseleave="this.style.boxShadow='var(--shadow)';this.style.borderColor='var(--card-border)'"` : ''}>
+
+        <!-- Cabeçalho -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${icon} ${titulo}</div>
+          ${anoClick ? `<span style="font-size:10px;color:var(--accent);font-weight:500">Ver →</span>` : ''}
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${subtitulo}</div>
-        <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
-          <span><span style="color:#4caf50">●</span> ${lido} lidos</span>
-          <span><span style="color:#ffc107">●</span> ${lendo} lendo</span>
-          <span><span style="color:#64b5f6">●</span> ${tbr} na TBR</span>
-          <span><span style="color:#e53935">❤️</span> ${fav} favoritos</span>
-          <span><span style="color:#e53935">●</span> ${aband} abandonados</span>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">${subtitulo}</div>
+
+        <!-- Status rows -->
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#4caf50;display:inline-block"></span>Lidos</span>
+            <span style="font-weight:600;color:var(--text-primary)">${lido}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#ffc107;display:inline-block"></span>Lendo</span>
+            <span style="font-weight:600;color:var(--text-primary)">${lendo}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#64b5f6;display:inline-block"></span>Na TBR</span>
+            <span style="font-weight:600;color:var(--text-primary)">${tbr}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:5px">❤️ Favoritos</span>
+            <span style="font-weight:600;color:var(--text-primary)">${fav}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#e53935;display:inline-block"></span>Abandonados</span>
+            <span style="font-weight:600;color:var(--text-primary)">${aband}</span>
+          </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--card-border)">
-          <span>📘 ${fisico} físicos</span>
-          <span>📱 ${ebook} e-books</span>
-          <span>🎧 ${audio} audiobooks</span>
+
+        <!-- Separador + Formatos -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--card-border);display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>📘 Físicos</span>
+            <span style="font-weight:600;color:var(--text-primary)">${fisico}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>📱 E-books</span>
+            <span style="font-weight:600;color:var(--text-primary)">${ebook}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>🎧 Audiobooks</span>
+            <span style="font-weight:600;color:var(--text-primary)">${audio}</span>
+          </div>
         </div>
       </div>`;
   }
