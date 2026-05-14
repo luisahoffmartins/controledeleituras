@@ -3563,9 +3563,7 @@ auth.onAuthStateChanged(async (user) => {
         DB = cloudData;
         localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
         setSyncStatus('ok');
-        renderDashboard();
-        renderHistoricos();
-        renderVisualTracker();
+        _restoreActiveSection();
       } else {
         await _saveToFirestore(DB);
         setSyncStatus('ok');
@@ -3683,7 +3681,6 @@ function showSection(name, el) {
 
   document.getElementById('topTitle').textContent = sectionTitles[name] || name;
 
-  // Persist active section so it survives page reload
   localStorage.setItem('luisa_active_section', name);
 
   renderSection(name);
@@ -5366,7 +5363,7 @@ function openDesafioModal(id) {
   const desFormEl = document.getElementById('desafio-modal').querySelector('.modal');
   openPagePanel(d ? '✏️ Editar Desafio' : '🎯 Novo Desafio', desFormEl.innerHTML,
     `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button><button class='btn btn-primary' onclick='saveDesafio()'>✓ Salvar</button>`);
-  // Populate fields AFTER panel is open so cloned DOM elements receive the values
+  // Populate AFTER panel is open so cloned elements receive the values
   const panel = document.getElementById('page-panel-body');
   panel.querySelector('#df-capa').value      = d ? (d.capa||'') : '';
   panel.querySelector('#df-nome').value      = d ? d.nome : '';
@@ -5407,7 +5404,6 @@ function saveDesafio() {
   saveData(DB);
   closeDesafioModal();
   renderDesafios();
-  // Re-open detail panel so changes are visible immediately
   if (editId) setTimeout(() => openDesafioDetail(editId), 50);
 }
 
@@ -8505,17 +8501,19 @@ function calcHistProgressFromPages(el) {
   progEl.value = Math.min(100, Math.round((pags / livro.paginas) * 100));
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+function _restoreActiveSection() {
   renderDashboard();
   renderHistoricos();
   renderVisualTracker();
-
-  // Restore last active section after page reload
-  const savedSection = localStorage.getItem('luisa_active_section');
-  if (savedSection && savedSection !== 'dashboard') {
-    const navEl = document.querySelector(`.nav-item[onclick*="${savedSection}"]`);
-    if (navEl) showSection(savedSection, navEl);
+  const saved = localStorage.getItem('luisa_active_section');
+  if (saved && saved !== 'dashboard') {
+    const navEl = document.querySelector(`.nav-item[onclick*="'${saved}'"]`);
+    if (navEl) showSection(saved, navEl);
   }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  _restoreActiveSection();
 });
 </script>
 
