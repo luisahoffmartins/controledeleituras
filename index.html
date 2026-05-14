@@ -5360,19 +5360,19 @@ function previewDesafioCapa(url) {
 
 function openDesafioModal(id) {
   const d = id ? DB.desafios.find(x => String(x.id) === String(id)) : null;
-  document.getElementById('desafio-modal-title').textContent = d ? '✏️ Editar Desafio' : '🎯 Novo Desafio';
-  document.getElementById('df-capa').value     = d ? (d.capa||'') : '';
-  document.getElementById('df-nome').value     = d ? d.nome : '';
-  document.getElementById('df-descricao').value= d ? (d.descricao||'') : '';
-  document.getElementById('df-meta').value     = d ? d.meta : '';
-  document.getElementById('df-ano').value      = d ? (d.ano||2026) : 2026;
-  document.getElementById('df-autor').value    = d ? (d.autor||'') : '';
-  document.getElementById('df-genero').value   = d ? (d.genero||'') : '';
-  previewDesafioCapa(d ? (d.capa||'') : '');
-  document.getElementById('desafio-modal').dataset.editId = id || '';
   const desFormEl = document.getElementById('desafio-modal').querySelector('.modal');
   openPagePanel(d ? '✏️ Editar Desafio' : '🎯 Novo Desafio', desFormEl.innerHTML,
     `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button><button class='btn btn-primary' onclick='saveDesafio()'>✓ Salvar</button>`);
+  // Populate fields AFTER panel is open so the cloned DOM elements receive the values
+  document.getElementById('desafio-modal-title').textContent = d ? '✏️ Editar Desafio' : '🎯 Novo Desafio';
+  const panel = document.getElementById('page-panel-body');
+  panel.querySelector('#df-capa').value      = d ? (d.capa||'') : '';
+  panel.querySelector('#df-nome').value      = d ? d.nome : '';
+  panel.querySelector('#df-descricao').value = d ? (d.descricao||'') : '';
+  panel.querySelector('#df-meta').value      = d ? d.meta : '';
+  panel.querySelector('#df-ano').value       = d ? (d.ano||2026) : 2026;
+  panel.querySelector('#df-autor').value     = d ? (d.autor||'') : '';
+  panel.querySelector('#df-genero').value    = d ? (d.genero||'') : '';
   previewDesafioCapa(d ? (d.capa||'') : '');
   document.getElementById('desafio-modal').dataset.editId = id || '';
 }
@@ -5381,18 +5381,20 @@ function closeDesafioModal() { closePagePanel(); }
 function closeDesafioModalOverlay(e) {}
 
 function saveDesafio() {
-  const nome = document.getElementById('df-nome').value.trim();
+  const panel = document.getElementById('page-panel-body');
+  const nome = (panel.querySelector('#df-nome') || document.getElementById('df-nome')).value.trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('desafio-modal').dataset.editId;
+  const get = id => (panel.querySelector('#'+id) || document.getElementById(id)).value;
   const entry = {
     id:        editId || 'd' + Date.now(),
     nome,
-    descricao: document.getElementById('df-descricao').value.trim(),
-    meta:      parseInt(document.getElementById('df-meta').value) || 0,
-    ano:       parseInt(document.getElementById('df-ano').value) || 2026,
-    capa:      document.getElementById('df-capa').value.trim() || '',
-    autor:     document.getElementById('df-autor').value.trim(),
-    genero:    document.getElementById('df-genero').value.trim(),
+    descricao: get('df-descricao').trim(),
+    meta:      parseInt(get('df-meta')) || 0,
+    ano:       parseInt(get('df-ano')) || 2026,
+    capa:      get('df-capa').trim() || '',
+    autor:     get('df-autor').trim(),
+    genero:    get('df-genero').trim(),
   };
   if (editId) {
     const idx = DB.desafios.findIndex(x => x.id === editId);
