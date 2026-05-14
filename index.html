@@ -3683,6 +3683,9 @@ function showSection(name, el) {
 
   document.getElementById('topTitle').textContent = sectionTitles[name] || name;
 
+  // Persist active section so it survives page reload
+  localStorage.setItem('luisa_active_section', name);
+
   renderSection(name);
 
   // close sidebar on mobile
@@ -5363,13 +5366,12 @@ function openDesafioModal(id) {
   const desFormEl = document.getElementById('desafio-modal').querySelector('.modal');
   openPagePanel(d ? '✏️ Editar Desafio' : '🎯 Novo Desafio', desFormEl.innerHTML,
     `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button><button class='btn btn-primary' onclick='saveDesafio()'>✓ Salvar</button>`);
-  // Populate fields AFTER panel is open so the cloned DOM elements receive the values
-  document.getElementById('desafio-modal-title').textContent = d ? '✏️ Editar Desafio' : '🎯 Novo Desafio';
+  // Populate fields AFTER panel is open so cloned DOM elements receive the values
   const panel = document.getElementById('page-panel-body');
   panel.querySelector('#df-capa').value      = d ? (d.capa||'') : '';
   panel.querySelector('#df-nome').value      = d ? d.nome : '';
   panel.querySelector('#df-descricao').value = d ? (d.descricao||'') : '';
-  panel.querySelector('#df-meta').value      = d ? d.meta : '';
+  panel.querySelector('#df-meta').value      = d ? (d.meta||0) : 0;
   panel.querySelector('#df-ano').value       = d ? (d.ano||2026) : 2026;
   panel.querySelector('#df-autor').value     = d ? (d.autor||'') : '';
   panel.querySelector('#df-genero').value    = d ? (d.genero||'') : '';
@@ -5382,10 +5384,10 @@ function closeDesafioModalOverlay(e) {}
 
 function saveDesafio() {
   const panel = document.getElementById('page-panel-body');
-  const nome = (panel.querySelector('#df-nome') || document.getElementById('df-nome')).value.trim();
+  const get = id => (panel.querySelector('#'+id) || document.getElementById(id)).value;
+  const nome = get('df-nome').trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('desafio-modal').dataset.editId;
-  const get = id => (panel.querySelector('#'+id) || document.getElementById(id)).value;
   const entry = {
     id:        editId || 'd' + Date.now(),
     nome,
@@ -5405,6 +5407,8 @@ function saveDesafio() {
   saveData(DB);
   closeDesafioModal();
   renderDesafios();
+  // Re-open detail panel so changes are visible immediately
+  if (editId) setTimeout(() => openDesafioDetail(editId), 50);
 }
 
 function deleteDesafio(id) {
@@ -8505,6 +8509,13 @@ window.addEventListener('DOMContentLoaded', () => {
   renderDashboard();
   renderHistoricos();
   renderVisualTracker();
+
+  // Restore last active section after page reload
+  const savedSection = localStorage.getItem('luisa_active_section');
+  if (savedSection && savedSection !== 'dashboard') {
+    const navEl = document.querySelector(`.nav-item[onclick*="${savedSection}"]`);
+    if (navEl) showSection(savedSection, navEl);
+  }
 });
 </script>
 
