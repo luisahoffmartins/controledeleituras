@@ -3443,12 +3443,13 @@ function defaultDB() {
 // ── Migrate / patch loaded data ───────────────────────────────────────
 function migrateDB(d) {
   if (!d.historicos)   d.historicos   = [];
-  if (!d.series)       d.series       = DEFAULT_SERIES;
+  if (!d.series)       d.series       = DEFAULT_SERIES.map(s => ({...s}));
   else {
-    // Merge new default series (add any that don't exist yet, never overwrite existing)
+    // Merge new default series (add any that don't exist yet, never overwrite existing user edits)
     const existingSerieIds = new Set(d.series.map(s => s.id));
     DEFAULT_SERIES.forEach(def => {
-      if (!existingSerieIds.has(def.id)) d.series.push(def);
+      if (!existingSerieIds.has(def.id)) d.series.push({...def});
+      // NOTE: existing series are NEVER touched — user edits (status, nota, favorita, comentario, capa) are always preserved
     });
   }
   if (!d.prateleiras)  d.prateleiras  = DEFAULT_PRATELEIRAS;
@@ -3508,9 +3509,9 @@ function saveData(data) {
   localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(data));
   localStorage.setItem('luisa_bookshelf_ts', ts);
 
-  // 2. Firestore save debounced 1.5s (avoids too many writes)
+  // 2. Firestore save debounced 500ms (shorter window to avoid loss on quick refresh)
   if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => _saveToFirestore(data), 1500);
+  _saveTimer = setTimeout(() => _saveToFirestore(data), 500);
 }
 
 async function _saveToFirestore(data) {
@@ -3554,6 +3555,18 @@ function setSyncStatus(status) {
 }
 
 // ── AUTH — login com Google, sessão persistente ───────────────────────
+
+// Force-save to Firestore before the page unloads (covers refresh/close)
+window.addEventListener('beforeunload', () => {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer);
+    _saveTimer = null;
+    // Synchronous localStorage save is already done; kick off async Firestore save
+    // (browser may cancel it, but best-effort is better than nothing)
+    _saveToFirestore(DB);
+  }
+});
+
 auth.onAuthStateChanged(async (user) => {
   const loginScreen = document.getElementById('login-screen');
   // Always keep the app accessible — login is optional (used only for cloud sync)
@@ -3569,16 +3582,20 @@ auth.onAuthStateChanged(async (user) => {
     } else {
       setSyncStatus('syncing');
       const cloudData = await _loadFromFirestore();
-      // Use cloud data only if it's newer than what we have locally
+      // Use cloud data if it exists and local has no timestamp (new device) OR cloud is strictly newer
       const localTs = localStorage.getItem('luisa_bookshelf_ts');
       const cloudTs = cloudData && cloudData._savedAt;
+      // On a fresh device (no localTs), ALWAYS use cloud data if it exists
+      // On same device, use cloud only if it's strictly newer (handles refresh race)
       const useCloud = cloudData && (!localTs || (cloudTs && cloudTs > localTs));
       if (useCloud) {
         DB = cloudData;
         localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
+        localStorage.setItem('luisa_bookshelf_ts', cloudTs || new Date().toISOString());
         setSyncStatus('ok');
         _restoreActiveSection();
       } else {
+        // Local is newer — push it to cloud so other devices get updated
         await _saveToFirestore(DB);
         setSyncStatus('ok');
       }
