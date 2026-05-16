@@ -4989,8 +4989,20 @@ function renderSeries() {
 
 
 function previewSerieCapa(url) {
+  // Support both old modal (div+img) and new panel (img direct) layouts
   const prev = document.getElementById('sf-capa-preview');
   const img  = document.getElementById('sf-capa-img');
+  if (prev && prev.tagName === 'IMG') {
+    // New panel layout: sf-capa-preview is the img itself
+    if (url && url.trim()) {
+      prev.src = url.trim();
+      prev.style.display = 'block';
+      prev.onerror = () => { prev.style.display = 'none'; };
+    } else {
+      prev.style.display = 'none';
+    }
+    return;
+  }
   if (!prev || !img) return;
   if (url && url.trim()) {
     img.src = url.trim();
@@ -5037,11 +5049,6 @@ function openSeriesDetail(id) {
     <div class="modal-header" style="position:sticky;top:0;background:var(--card-bg);z-index:10;border-bottom:1px solid var(--card-border);padding:20px 28px;flex-shrink:0">
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--text-primary)">${s.nome}${s.favorita ? ' ❤️' : ''}</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="openSeriesModal('${s.id}')">✏️ Editar</button>
-        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--accent-rose)" onclick="deleteSerie('${s.id}')">🗑️</button>
-        <button class="modal-close" style="width:32px;height:32px;font-size:18px" onclick="closeSeriesDetail()">✕</button>
       </div>
     </div>
 
@@ -5105,31 +5112,62 @@ function closeSeriesDetail(e) {
     closePagePanel();
 }
 
+// Global variable to track which serie is being edited
+window._serieEditId = '';
+
 function openSeriesModal(id) {
   const s = id ? DB.series.find(x => String(x.id) === String(id)) : null;
-  document.getElementById('series-modal-title').textContent = s ? '✏️ Editar Série' : '🗂️ Nova Série';
-  document.getElementById('sf-capa').value      = s ? (s.capa || '') : '';
-  previewSerieCapa(s ? (s.capa||'') : '');
-  document.getElementById('sf-nome').value      = s ? s.nome : '';
-  document.getElementById('sf-status').value    = s ? (s.status || 'Não iniciada') : 'Não iniciada';
-  document.getElementById('sf-nota').value      = s ? (s.nota || '') : '';
-  document.getElementById('sf-favorita').checked = s ? !!s.favorita : false;
-  document.getElementById('sf-comentario').value = s ? (s.comentario || '') : '';
-  if (!id) { document.getElementById('sf-capa').value = ''; previewSerieCapa(''); }
-  document.getElementById('series-modal').dataset.editId = id || '';
+  window._serieEditId = id || '';
+
+  const capaVal    = s ? (s.capa || '') : '';
+  const nomeVal    = s ? s.nome : '';
+  const statusVal  = s ? (s.status || 'Não iniciada') : 'Não iniciada';
+  const notaVal    = s ? (s.nota || '') : '';
+  const favChecked = s ? (s.favorita ? 'checked' : '') : '';
+  const comentVal  = s ? (s.comentario || '') : '';
+  const titulo     = s ? '✏️ Editar Série' : '🗂️ Nova Série';
+
+  const statusOpts = ['Não iniciada','Lendo','Completa','Abandonada','Pausada']
+    .map(opt => `<option value="${opt}"${opt === statusVal ? ' selected' : ''}>${opt}</option>`).join('');
+
+  const notaOpts = `<option value="">Sem nota</option>` +
+    [1,2,3,4,5].map(i => `<option value="${i}"${i == notaVal ? ' selected' : ''}>${'⭐'.repeat(i)}</option>`).join('');
+
+  const formHTML = `
+    <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+      <div class="form-group">
+        <label class="form-label">URL da capa</label>
+        <input class="form-input" id="sf-capa" value="${capaVal}" placeholder="https://..." oninput="previewSerieCapa(this.value)">
+        <img id="sf-capa-preview" src="${capaVal}" style="max-width:80px;max-height:110px;border-radius:6px;margin-top:6px;display:${capaVal ? 'block' : 'none'}" onerror="this.style.display='none'">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nome *</label>
+        <input class="form-input" id="sf-nome" value="${nomeVal}" placeholder="Nome da série">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="sf-status">${statusOpts}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avaliação</label>
+        <select class="form-select" id="sf-nota">${notaOpts}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="sf-favorita" ${favChecked}> Favorita ❤️
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Comentário</label>
+        <textarea class="form-textarea" id="sf-comentario" placeholder="Anotações sobre a série...">${comentVal}</textarea>
+      </div>
+    </div>`;
+
   closePagePanel();
   setTimeout(() => {
-    const formEl = document.getElementById('series-modal').querySelector('.modal');
-    openPagePanel(s ? '✏️ Editar Série' : '🗂️ Nova Série', formEl.innerHTML,
+    openPagePanel(titulo, formHTML,
       `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button>
        <button class='btn btn-primary' onclick='saveSerie()'>✓ Salvar</button>`);
-    // Re-populate
-    const sEl = s;
-    ['sf-nome','sf-status','sf-nota','sf-comentario','sf-capa'].forEach(fid => {
-      const el=document.getElementById(fid); if(el&&sEl) el.value=sEl[fid.replace('sf-','')]||'';
-    });
-    if(s){ document.getElementById('sf-status').value=s.status||'Não iniciada'; document.getElementById('sf-nota').value=s.nota||''; document.getElementById('sf-capa').value=s.capa||''; document.getElementById('sf-favorita').checked=!!s.favorita; document.getElementById('sf-comentario').value=s.comentario||''; previewSerieCapa(s.capa||''); }
-    document.getElementById('series-modal').dataset.editId = id || '';
   }, 50);
 }
 
@@ -5144,7 +5182,7 @@ function saveSerie() {
 
   const nome = get('sf-nome').trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
-  const editId = document.getElementById('series-modal').dataset.editId;
+  const editId = window._serieEditId || '';
   const entry = {
     id:         editId || 's' + Date.now(),
     nome,
