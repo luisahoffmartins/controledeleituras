@@ -5138,17 +5138,21 @@ function closeSeriesModal() { closePagePanel(); }
 function closeSeriesModalOverlay(e) {}
 
 function saveSerie() {
-  const nome = document.getElementById('sf-nome').value.trim();
+  const panel = document.getElementById('page-panel-body');
+  const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
+  const getChk= id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).checked : !!(document.getElementById(id)||{}).checked);
+
+  const nome = get('sf-nome').trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('series-modal').dataset.editId;
   const entry = {
-    id: editId || 's' + Date.now(),
+    id:         editId || 's' + Date.now(),
     nome,
-    status:     document.getElementById('sf-status').value,
-    nota:       parseInt(document.getElementById('sf-nota').value) || null,
-    favorita:   document.getElementById('sf-favorita').checked,
-    comentario: document.getElementById('sf-comentario').value.trim(),
-    capa: document.getElementById('sf-capa').value.trim() || null,
+    status:     get('sf-status') || 'Não iniciada',
+    nota:       parseInt(get('sf-nota')) || null,
+    favorita:   getChk('sf-favorita'),
+    comentario: get('sf-comentario').trim(),
+    capa:       get('sf-capa').trim() || null,
   };
   if (editId) {
     const idx = DB.series.findIndex(s => s.id === editId);
@@ -5230,14 +5234,17 @@ function closePratModal() { closePagePanel(); }
 function closePratModalOverlay(e) {}
 
 function savePrateleira() {
-  const nome = document.getElementById('pf-nome').value.trim();
+  const panel = document.getElementById('page-panel-body');
+  const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
+
+  const nome = get('pf-nome').trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('prat-modal').dataset.editId;
   const entry = {
     id:    editId || 'p' + Date.now(),
     nome,
-    emoji: document.getElementById('pf-emoji').value || '📚',
-    cor:   document.getElementById('pf-cor').value || '#c4813a',
+    emoji: get('pf-emoji') || '📚',
+    cor:   get('pf-cor') || '#c4813a',
   };
   if (editId) {
     const idx = DB.prateleiras.findIndex(p => p.id === editId);
@@ -5246,7 +5253,6 @@ function savePrateleira() {
     DB.prateleiras.push(entry);
   }
   saveData(DB);
-  // Also update books' prateleira field if nome changed
   closePratModal();
   renderPrateleiras();
 }
@@ -5572,18 +5578,11 @@ function renderDesafios() {
 
 function getBooksForMeta(m) {
   const ano = m.ano || new Date().getFullYear();
-
-  // Collect all books explicitly linked to this meta via b.meta field
-  const explicit = DB.books.filter(b => {
-    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
-    return metaVals.includes(m.id) || metaVals.includes(m.nome);
-  });
-
-  // If ANY book is explicitly linked, use only explicit links (no year fallback)
-  if (explicit.length > 0) return explicit;
-
-  // No explicit links — fallback: count all books from that year (generic yearly goal)
   return DB.books.filter(b => {
+    // Explicit link via meta field (array or legacy string)
+    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
+    if (metaVals.includes(m.id) || metaVals.includes(m.nome)) return true;
+    // Auto-link by year
     const bookAno = b.ano
       || (b.fim    ? parseInt(b.fim.split('-')[0], 10)    : null)
       || (b.inicio ? parseInt(b.inicio.split('-')[0], 10) : null);
@@ -5624,17 +5623,20 @@ function closeMetaModal()         { document.getElementById('meta-modal').classL
 function closeMetaModalOverlay(e) { if (e.target===document.getElementById('meta-modal')) closeMetaModal(); }
 
 function saveMeta() {
-  const nome = document.getElementById('mf-nome').value.trim();
+  const panel = document.getElementById('page-panel-body');
+  const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
+
+  const nome = get('mf-nome').trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('meta-modal').dataset.editId;
   const entry  = {
     id:        editId || 'm' + Date.now(),
     nome,
-    meta:      parseInt(document.getElementById('mf-meta').value) || 0,
-    ano:       parseInt(document.getElementById('mf-ano').value) || 2026,
-    capa:      document.getElementById('mf-capa').value.trim() || '',
-    emoji:     document.getElementById('mf-emoji').value || '📚',
-    descricao: document.getElementById('mf-descricao').value.trim(),
+    meta:      parseInt(get('mf-meta')) || 0,
+    ano:       parseInt(get('mf-ano')) || 2026,
+    capa:      get('mf-capa').trim() || '',
+    emoji:     get('mf-emoji') || '📚',
+    descricao: get('mf-descricao').trim(),
   };
   if (editId) {
     const idx = DB.metas.findIndex(x => x.id === editId);
@@ -8508,23 +8510,13 @@ function calcHistProgressFromPages(el) {
   progEl.value = Math.min(100, Math.round((pags / livro.paginas) * 100));
 }
 
-function _getNavEl(sectionName) {
-  // Try exact onclick match first, then partial
-  return document.querySelector(`.nav-item[onclick="showSection('${sectionName}', this)"]`)
-      || Array.from(document.querySelectorAll('.nav-item')).find(el => {
-           const oc = el.getAttribute('onclick') || '';
-           return oc.includes(`'${sectionName}'`) || oc.includes(`"${sectionName}"`);
-         })
-      || null;
-}
-
 function _restoreActiveSection() {
   renderDashboard();
   renderHistoricos();
   renderVisualTracker();
   const saved = localStorage.getItem('luisa_active_section');
   if (saved && saved !== 'dashboard') {
-    const navEl = _getNavEl(saved);
+    const navEl = document.querySelector(`.nav-item[onclick*="'${saved}'"]`);
     if (navEl) showSection(saved, navEl);
   }
 }
