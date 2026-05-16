@@ -5001,10 +5001,24 @@ function previewSerieCapa(url) {
   }
 }
 
+let _openSeriesDetailId = null;
+
 function openSeriesDetail(id) {
+  _openSeriesDetailId = id;
+  _renderSeriesDetail(id);
+}
+
+function _renderSeriesDetail(id) {
   const s = DB.series.find(x => String(x.id) === String(id));
   if (!s) return;
-  const books  = getBooksForSerie(s.nome);
+
+  // Sort books by serieNum (nulls/undefined go to end)
+  const books = getBooksForSerie(s.nome).slice().sort((a, b) => {
+    const an = a.serieNum != null ? Number(a.serieNum) : Infinity;
+    const bn = b.serieNum != null ? Number(b.serieNum) : Infinity;
+    return an - bn;
+  });
+
   const total  = books.length;
   const lidos  = books.filter(b => b.status === 'Lido').length;
   const pct    = total > 0 ? Math.round((lidos / total) * 100) : 0;
@@ -5014,7 +5028,7 @@ function openSeriesDetail(id) {
 
   const booksRows = books.map((b,i) => `
     <tr onclick="editBook(${b.id})" style="cursor:pointer">
-      <td style="color:var(--text-muted);font-size:12px">${i+1}</td>
+      <td style="color:var(--text-muted);font-size:12px">${b.serieNum != null ? b.serieNum : i+1}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           ${b.capa ? `<img src="${b.capa}" style="width:24px;height:34px;object-fit:cover;border-radius:3px">` : '📖'}
@@ -5026,9 +5040,9 @@ function openSeriesDetail(id) {
       <td><span style="color:#f9a825">${b.nota ? '⭐'.repeat(b.nota) : '—'}</span></td>
       <td>
         <div style="width:80px;height:5px;background:var(--progress-bg);border-radius:99px;overflow:hidden">
-          <div style="width:${b.progresso}%;height:100%;background:var(--accent-green);border-radius:99px"></div>
+          <div style="width:${b.progresso||0}%;height:100%;background:var(--accent-green);border-radius:99px"></div>
         </div>
-        <span style="font-size:10px;color:var(--text-muted)">${b.progresso}%</span>
+        <span style="font-size:10px;color:var(--text-muted)">${b.progresso||0}%</span>
       </td>
     </tr>`).join('');
 
@@ -5161,8 +5175,13 @@ function saveSerie() {
     DB.series.push(entry);
   }
   saveData(DB);
-  closeSeriesModal();
   renderSeries();
+  // If editing, reopen the series detail panel; if new, just close
+  if (editId) {
+    setTimeout(() => _renderSeriesDetail(editId), 50);
+  } else {
+    closeSeriesModal();
+  }
 }
 
 function deleteSerie(id) {
@@ -5234,17 +5253,14 @@ function closePratModal() { closePagePanel(); }
 function closePratModalOverlay(e) {}
 
 function savePrateleira() {
-  const panel = document.getElementById('page-panel-body');
-  const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
-
-  const nome = get('pf-nome').trim();
+  const nome = document.getElementById('pf-nome').value.trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('prat-modal').dataset.editId;
   const entry = {
     id:    editId || 'p' + Date.now(),
     nome,
-    emoji: get('pf-emoji') || '📚',
-    cor:   get('pf-cor') || '#c4813a',
+    emoji: document.getElementById('pf-emoji').value || '📚',
+    cor:   document.getElementById('pf-cor').value || '#c4813a',
   };
   if (editId) {
     const idx = DB.prateleiras.findIndex(p => p.id === editId);
@@ -5253,6 +5269,7 @@ function savePrateleira() {
     DB.prateleiras.push(entry);
   }
   saveData(DB);
+  // Also update books' prateleira field if nome changed
   closePratModal();
   renderPrateleiras();
 }
@@ -5623,20 +5640,17 @@ function closeMetaModal()         { document.getElementById('meta-modal').classL
 function closeMetaModalOverlay(e) { if (e.target===document.getElementById('meta-modal')) closeMetaModal(); }
 
 function saveMeta() {
-  const panel = document.getElementById('page-panel-body');
-  const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
-
-  const nome = get('mf-nome').trim();
+  const nome = document.getElementById('mf-nome').value.trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
   const editId = document.getElementById('meta-modal').dataset.editId;
   const entry  = {
     id:        editId || 'm' + Date.now(),
     nome,
-    meta:      parseInt(get('mf-meta')) || 0,
-    ano:       parseInt(get('mf-ano')) || 2026,
-    capa:      get('mf-capa').trim() || '',
-    emoji:     get('mf-emoji') || '📚',
-    descricao: get('mf-descricao').trim(),
+    meta:      parseInt(document.getElementById('mf-meta').value) || 0,
+    ano:       parseInt(document.getElementById('mf-ano').value) || 2026,
+    capa:      document.getElementById('mf-capa').value.trim() || '',
+    emoji:     document.getElementById('mf-emoji').value || '📚',
+    descricao: document.getElementById('mf-descricao').value.trim(),
   };
   if (editId) {
     const idx = DB.metas.findIndex(x => x.id === editId);
