@@ -5615,16 +5615,22 @@ function renderDesafios() {
 // ── METAS ──
 
 function getBooksForMeta(m) {
+  // Returns all books linked to the meta by year (for progress counting)
   const ano = m.ano || new Date().getFullYear();
   return DB.books.filter(b => {
-    // Explicit link via meta field (array or legacy string)
     const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
     if (metaVals.includes(m.id) || metaVals.includes(m.nome)) return true;
-    // Auto-link by year
     const bookAno = b.ano
       || (b.fim    ? parseInt(b.fim.split('-')[0], 10)    : null)
       || (b.inicio ? parseInt(b.inicio.split('-')[0], 10) : null);
     return bookAno === ano;
+  });
+}
+function getBooksLinkedToMeta(m) {
+  // Returns ONLY books explicitly tagged with this meta
+  return DB.books.filter(b => {
+    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
+    return metaVals.includes(m.id) || metaVals.includes(m.nome);
   });
 }
 function getLidosForMeta(m) {
@@ -5713,10 +5719,11 @@ function openMetaDetail(id) {
   const m = DB.metas.find(x => String(x.id) === String(id));
   if (!m) return;
 
-  const allBooks  = getBooksForMeta(m);
-  const lidosList = getLidosForMeta(m);
-  const lidos     = lidosList.length;
-  const total     = allBooks.length;
+  const allBooks    = getBooksForMeta(m);       // all books by year (for stats/progress)
+  const linkedBooks = getBooksLinkedToMeta(m);  // only explicitly tagged books (for list display)
+  const lidosList   = getLidosForMeta(m);
+  const lidos       = lidosList.length;
+  const total       = allBooks.length;
   const meta      = m.meta || 0;
   const pct       = meta > 0 ? Math.min(100, Math.round((lidos / meta) * 100)) : 0;
   const frase     = metaFrase(lidos, meta);
@@ -5724,8 +5731,8 @@ function openMetaDetail(id) {
 
   document.getElementById('meta-detail-title').textContent = (m.emoji||'📚') + ' ' + m.nome;
 
-  // Book list for lista tab — show ALL books of the year (like Notion)
-  const booksRows = allBooks.map(b => {
+  // Book list for lista tab — show only books explicitly tagged with this meta
+  const booksRows = linkedBooks.map(b => {
     const period = b.inicio ? `${fmt(b.inicio)}${b.fim&&b.fim!==b.inicio?' → '+fmt(b.fim):''}` : '—';
     const rowBg  = b.status === 'Lido' ? '#f0faf0' : (b.status === 'Quero muito ler' ? '#f5f0ff' : '');
     return `<tr onclick="editBook(${b.id})" style="cursor:pointer;background:${rowBg}">
@@ -5756,11 +5763,11 @@ function openMetaDetail(id) {
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">↗ Livros</div>
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px">
-        ${allBooks.slice(0,5).map(b => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        ${linkedBooks.slice(0,5).map(b => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
           <span style="font-size:14px">📖</span> ${b.titulo}
         </div>`).join('')}
-        ${allBooks.length > 5 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">Mais ${allBooks.length-5}...</div>` : ''}
-        ${allBooks.length === 0 ? '<span style="color:var(--text-muted);font-size:12px">Nenhum livro ainda</span>' : ''}
+        ${linkedBooks.length > 5 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">Mais ${linkedBooks.length-5}...</div>` : ''}
+        ${linkedBooks.length === 0 ? '<span style="color:var(--text-muted);font-size:12px">Nenhum livro ainda</span>' : ''}
       </div>
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">🔍 Livros lidos</div>
@@ -5780,7 +5787,7 @@ function openMetaDetail(id) {
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px">Você leu ${lidos} de ${meta} livros</div>
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">🔍 Total relacionados</div>
-      <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600">${total}</div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600">${linkedBooks.length}</div>
 
       <div style="padding:10px 16px;background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">Σ Conclusão da meta</div>
       <div style="padding:10px 16px;font-size:13px">${frase}</div>
@@ -5794,8 +5801,8 @@ function openMetaDetail(id) {
 
     <!-- Lista -->
     <div id="meta-tab-lista">
-      ${allBooks.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">📚</div><p>Nenhum livro em ${m.ano} ainda.</p></div>`
+      ${linkedBooks.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">📚</div><p>Nenhum livro com esta meta ainda. Adicione a meta aos livros no cadastro.</p></div>`
         : `<div class="data-table-wrap">
             <table class="data-table" style="width:100%">
               <thead><tr><th>Nome</th><th>Status</th><th>Data da leitura</th><th>Avaliação</th><th>Progresso</th></tr></thead>
@@ -5807,9 +5814,9 @@ function openMetaDetail(id) {
     <!-- Galeria -->
     <div id="meta-tab-galeria" style="display:none">
       <div class="lib-gallery">
-        ${allBooks.length === 0
-          ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⭐</div><p>Nenhum livro em ${m.ano} ainda.</p></div>`
-          : allBooks.map(b => bookCardHTML(b)).join('')}
+        ${linkedBooks.length === 0
+          ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⭐</div><p>Nenhum livro com esta meta ainda.</p></div>`
+          : linkedBooks.map(b => bookCardHTML(b)).join('')}
       </div>
     </div>
 
