@@ -3502,10 +3502,11 @@ function loadData() {
 
 // ── saveData — writes localStorage immediately + Firestore with debounce ──
 function saveData(data) {
-  // 1. Instant local save (no lag)
+  // 1. Stamp save time on the data itself so Firestore/local comparison works
+  const ts = new Date().toISOString();
+  data._savedAt = ts;
   localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(data));
-  // Mark timestamp so Firestore load won't overwrite a recent save
-  window._lastLocalSave = Date.now();
+  localStorage.setItem('luisa_bookshelf_ts', ts);
 
   // 2. Firestore save debounced 1.5s (avoids too many writes)
   if (_saveTimer) clearTimeout(_saveTimer);
@@ -3567,10 +3568,12 @@ auth.onAuthStateChanged(async (user) => {
       setSyncStatus('ok');
     } else {
       setSyncStatus('syncing');
-      // Don't overwrite local changes made in the last 10 seconds
-      const recentlySaved = window._lastLocalSave && (Date.now() - window._lastLocalSave < 10000);
-      const cloudData = recentlySaved ? null : await _loadFromFirestore();
-      if (cloudData) {
+      const cloudData = await _loadFromFirestore();
+      // Use cloud data only if it's newer than what we have locally
+      const localTs = localStorage.getItem('luisa_bookshelf_ts');
+      const cloudTs = cloudData && cloudData._savedAt;
+      const useCloud = cloudData && (!localTs || (cloudTs && cloudTs > localTs));
+      if (useCloud) {
         DB = cloudData;
         localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
         setSyncStatus('ok');
@@ -4908,7 +4911,13 @@ function seriesFrase(lidos, total, status) {
 }
 
 function getBooksForSerie(serieNome) {
-  return DB.books.filter(b => b.serie && b.serie.toLowerCase() === serieNome.toLowerCase());
+  return DB.books
+    .filter(b => b.serie && b.serie.toLowerCase() === serieNome.toLowerCase())
+    .sort((a, b) => {
+      const na = a.serieNum != null ? Number(a.serieNum) : Infinity;
+      const nb = b.serieNum != null ? Number(b.serieNum) : Infinity;
+      return na - nb;
+    });
 }
 
 function getSeriesStatus(s) {
@@ -5197,6 +5206,9 @@ function saveSerie() {
   }
   window._serieEditId = '';
   saveData(DB);
+  // Force immediate Firestore save (bypass debounce) so cloud is always up-to-date
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+  _saveToFirestore(DB);
   closeSeriesModal();
   renderSeries();
 }
@@ -5205,6 +5217,8 @@ function deleteSerie(id) {
   if (!confirm('Remover esta série?')) return;
   DB.series = DB.series.filter(s => s.id !== id);
   saveData(DB);
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+  _saveToFirestore(DB);
   closeSeriesDetail();
   renderSeries();
 }
