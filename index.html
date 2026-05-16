@@ -4989,20 +4989,8 @@ function renderSeries() {
 
 
 function previewSerieCapa(url) {
-  // Support both old modal (div+img) and new panel (img direct) layouts
   const prev = document.getElementById('sf-capa-preview');
   const img  = document.getElementById('sf-capa-img');
-  if (prev && prev.tagName === 'IMG') {
-    // New panel layout: sf-capa-preview is the img itself
-    if (url && url.trim()) {
-      prev.src = url.trim();
-      prev.style.display = 'block';
-      prev.onerror = () => { prev.style.display = 'none'; };
-    } else {
-      prev.style.display = 'none';
-    }
-    return;
-  }
   if (!prev || !img) return;
   if (url && url.trim()) {
     img.src = url.trim();
@@ -5049,6 +5037,11 @@ function openSeriesDetail(id) {
     <div class="modal-header" style="position:sticky;top:0;background:var(--card-bg);z-index:10;border-bottom:1px solid var(--card-border);padding:20px 28px;flex-shrink:0">
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--text-primary)">${s.nome}${s.favorita ? ' ❤️' : ''}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="openSeriesModal('${s.id}')">✏️ Editar</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--accent-rose)" onclick="deleteSerie('${s.id}')">🗑️</button>
+        <button class="modal-close" style="width:32px;height:32px;font-size:18px" onclick="closeSeriesDetail()">✕</button>
       </div>
     </div>
 
@@ -5102,9 +5095,7 @@ function openSeriesDetail(id) {
       </table></div>
     </div>
   `;
-  openPagePanel(s.nome + (s.favorita ? ' ❤️' : ''), _seriesHTML,
-    `<button class='btn btn-ghost' style='padding:6px 12px;font-size:12px' onclick="openSeriesModal('${s.id}')">✏️ Editar</button>
-     <button class='btn btn-ghost' style='padding:6px 12px;font-size:12px;color:var(--accent-rose)' onclick="deleteSerie('${s.id}')">🗑️</button>`);
+  openPagePanel(s.nome + (s.favorita ? ' ❤️' : ''), _seriesHTML, '');
 }
 
 function closeSeriesDetail(e) {
@@ -5112,62 +5103,54 @@ function closeSeriesDetail(e) {
     closePagePanel();
 }
 
-// Global variable to track which serie is being edited
-window._serieEditId = '';
-
 function openSeriesModal(id) {
   const s = id ? DB.series.find(x => String(x.id) === String(id)) : null;
-  window._serieEditId = id || '';
+  // Store editId globally so saveSerie() can read it regardless of DOM state
+  window._serieEditId = id ? String(id) : '';
 
-  const capaVal    = s ? (s.capa || '') : '';
-  const nomeVal    = s ? s.nome : '';
-  const statusVal  = s ? (s.status || 'Não iniciada') : 'Não iniciada';
-  const notaVal    = s ? (s.nota || '') : '';
-  const favChecked = s ? (s.favorita ? 'checked' : '') : '';
-  const comentVal  = s ? (s.comentario || '') : '';
-  const titulo     = s ? '✏️ Editar Série' : '🗂️ Nova Série';
-
-  const statusOpts = ['Não iniciada','Lendo','Completa','Abandonada','Pausada']
-    .map(opt => `<option value="${opt}"${opt === statusVal ? ' selected' : ''}>${opt}</option>`).join('');
-
-  const notaOpts = `<option value="">Sem nota</option>` +
-    [1,2,3,4,5].map(i => `<option value="${i}"${i == notaVal ? ' selected' : ''}>${'⭐'.repeat(i)}</option>`).join('');
-
+  // Build the form HTML inline so it renders inside the page panel directly
   const formHTML = `
-    <div style="padding:24px;display:flex;flex-direction:column;gap:16px">
-      <div class="form-group">
-        <label class="form-label">URL da capa</label>
-        <input class="form-input" id="sf-capa" value="${capaVal}" placeholder="https://..." oninput="previewSerieCapa(this.value)">
-        <img id="sf-capa-preview" src="${capaVal}" style="max-width:80px;max-height:110px;border-radius:6px;margin-top:6px;display:${capaVal ? 'block' : 'none'}" onerror="this.style.display='none'">
+    <div style="padding:24px;max-width:540px;margin:0 auto">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Nome da Série *</label>
+        <input id="ppsf-nome" type="text" class="form-input" placeholder="Ex: Harry Potter" value="${s ? s.nome.replace(/"/g,'&quot;') : ''}" style="width:100%;padding:10px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg)">
       </div>
-      <div class="form-group">
-        <label class="form-label">Nome *</label>
-        <input class="form-input" id="sf-nome" value="${nomeVal}" placeholder="Nome da série">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Status</label>
+        <select id="ppsf-status" class="form-input" style="width:100%;padding:10px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg)">
+          <option value="Não iniciada" ${(!s||s.status==='Não iniciada')?'selected':''}>Não iniciada</option>
+          <option value="Quero ler"    ${s&&s.status==='Quero ler'?'selected':''}>Quero ler</option>
+          <option value="Em andamento" ${s&&s.status==='Em andamento'?'selected':''}>Em andamento</option>
+          <option value="Concluída"    ${s&&s.status==='Concluída'?'selected':''}>Concluída</option>
+          <option value="Abandonei"    ${s&&s.status==='Abandonei'?'selected':''}>Abandonei</option>
+        </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Status</label>
-        <select class="form-select" id="sf-status">${statusOpts}</select>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Avaliação (1–5)</label>
+        <input id="ppsf-nota" type="number" min="1" max="5" class="form-input" placeholder="—" value="${s && s.nota ? s.nota : ''}" style="width:100%;padding:10px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg)">
       </div>
-      <div class="form-group">
-        <label class="form-label">Avaliação</label>
-        <select class="form-select" id="sf-nota">${notaOpts}</select>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">URL da Capa</label>
+        <input id="ppsf-capa" type="url" class="form-input" placeholder="https://..." value="${s && s.capa ? s.capa.replace(/"/g,'&quot;') : ''}" style="width:100%;padding:10px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg)">
       </div>
-      <div class="form-group">
-        <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="sf-favorita" ${favChecked}> Favorita ❤️
-        </label>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px">Comentário</label>
+        <textarea id="ppsf-comentario" rows="3" class="form-input" placeholder="Suas impressões sobre a série..." style="width:100%;padding:10px 12px;border:1px solid var(--card-border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--bg);resize:vertical">${s ? (s.comentario||'') : ''}</textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">Comentário</label>
-        <textarea class="form-textarea" id="sf-comentario" placeholder="Anotações sobre a série...">${comentVal}</textarea>
+      <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <input id="ppsf-favorita" type="checkbox" ${s && s.favorita ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent)">
+        <label for="ppsf-favorita" style="font-size:14px;cursor:pointer">❤️ Série favorita</label>
       </div>
     </div>`;
 
   closePagePanel();
   setTimeout(() => {
-    openPagePanel(titulo, formHTML,
+    openPagePanel(
+      s ? '✏️ Editar Série' : '🗂️ Nova Série',
+      formHTML,
       `<button class='btn btn-ghost' onclick='closePagePanel()'>Cancelar</button>
-       <button class='btn btn-primary' onclick='saveSerie()'>✓ Salvar</button>`);
+       <button class='btn btn-primary' onclick='saveSerie()'>✓ Salvar</button>`
+    );
   }, 50);
 }
 
@@ -5180,24 +5163,28 @@ function saveSerie() {
   const get   = id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).value : (document.getElementById(id)||{}).value || '');
   const getChk= id => (panel && panel.querySelector('#'+id) ? panel.querySelector('#'+id).checked : !!(document.getElementById(id)||{}).checked);
 
-  const nome = get('sf-nome').trim();
+  // Try new panel field IDs first (ppsf-*), fall back to old modal IDs (sf-*)
+  const nome = (get('ppsf-nome') || get('sf-nome')).trim();
   if (!nome) { alert('Nome é obrigatório'); return; }
-  const editId = window._serieEditId || '';
+
+  const editId = window._serieEditId || document.getElementById('series-modal').dataset.editId || '';
   const entry = {
     id:         editId || 's' + Date.now(),
     nome,
-    status:     get('sf-status') || 'Não iniciada',
-    nota:       parseInt(get('sf-nota')) || null,
-    favorita:   getChk('sf-favorita'),
-    comentario: get('sf-comentario').trim(),
-    capa:       get('sf-capa').trim() || null,
+    status:     get('ppsf-status') || get('sf-status') || 'Não iniciada',
+    nota:       parseInt(get('ppsf-nota') || get('sf-nota')) || null,
+    favorita:   getChk('ppsf-favorita') || getChk('sf-favorita'),
+    comentario: (get('ppsf-comentario') || get('sf-comentario')).trim(),
+    capa:       (get('ppsf-capa') || get('sf-capa')).trim() || null,
   };
   if (editId) {
-    const idx = DB.series.findIndex(s => s.id === editId);
+    const idx = DB.series.findIndex(s => String(s.id) === String(editId));
     if (idx >= 0) DB.series[idx] = entry;
+    else DB.series.push(entry);
   } else {
     DB.series.push(entry);
   }
+  window._serieEditId = '';
   saveData(DB);
   closeSeriesModal();
   renderSeries();
@@ -5615,22 +5602,16 @@ function renderDesafios() {
 // ── METAS ──
 
 function getBooksForMeta(m) {
-  // Returns all books linked to the meta by year (for progress counting)
   const ano = m.ano || new Date().getFullYear();
   return DB.books.filter(b => {
+    // Explicit link via meta field (array or legacy string)
     const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
     if (metaVals.includes(m.id) || metaVals.includes(m.nome)) return true;
+    // Auto-link by year
     const bookAno = b.ano
       || (b.fim    ? parseInt(b.fim.split('-')[0], 10)    : null)
       || (b.inicio ? parseInt(b.inicio.split('-')[0], 10) : null);
     return bookAno === ano;
-  });
-}
-function getBooksLinkedToMeta(m) {
-  // Returns ONLY books explicitly tagged with this meta
-  return DB.books.filter(b => {
-    const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
-    return metaVals.includes(m.id) || metaVals.includes(m.nome);
   });
 }
 function getLidosForMeta(m) {
@@ -5719,11 +5700,10 @@ function openMetaDetail(id) {
   const m = DB.metas.find(x => String(x.id) === String(id));
   if (!m) return;
 
-  const allBooks    = getBooksForMeta(m);       // all books by year (for stats/progress)
-  const linkedBooks = getBooksLinkedToMeta(m);  // only explicitly tagged books (for list display)
-  const lidosList   = getLidosForMeta(m);
-  const lidos       = lidosList.length;
-  const total       = allBooks.length;
+  const allBooks  = getBooksForMeta(m);
+  const lidosList = getLidosForMeta(m);
+  const lidos     = lidosList.length;
+  const total     = allBooks.length;
   const meta      = m.meta || 0;
   const pct       = meta > 0 ? Math.min(100, Math.round((lidos / meta) * 100)) : 0;
   const frase     = metaFrase(lidos, meta);
@@ -5731,8 +5711,8 @@ function openMetaDetail(id) {
 
   document.getElementById('meta-detail-title').textContent = (m.emoji||'📚') + ' ' + m.nome;
 
-  // Book list for lista tab — show only books explicitly tagged with this meta
-  const booksRows = linkedBooks.map(b => {
+  // Book list for lista tab — show ALL books of the year (like Notion)
+  const booksRows = allBooks.map(b => {
     const period = b.inicio ? `${fmt(b.inicio)}${b.fim&&b.fim!==b.inicio?' → '+fmt(b.fim):''}` : '—';
     const rowBg  = b.status === 'Lido' ? '#f0faf0' : (b.status === 'Quero muito ler' ? '#f5f0ff' : '');
     return `<tr onclick="editBook(${b.id})" style="cursor:pointer;background:${rowBg}">
@@ -5763,11 +5743,11 @@ function openMetaDetail(id) {
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">↗ Livros</div>
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px">
-        ${linkedBooks.slice(0,5).map(b => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        ${allBooks.slice(0,5).map(b => `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
           <span style="font-size:14px">📖</span> ${b.titulo}
         </div>`).join('')}
-        ${linkedBooks.length > 5 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">Mais ${linkedBooks.length-5}...</div>` : ''}
-        ${linkedBooks.length === 0 ? '<span style="color:var(--text-muted);font-size:12px">Nenhum livro ainda</span>' : ''}
+        ${allBooks.length > 5 ? `<div style="color:var(--text-muted);font-size:12px;margin-top:4px">Mais ${allBooks.length-5}...</div>` : ''}
+        ${allBooks.length === 0 ? '<span style="color:var(--text-muted);font-size:12px">Nenhum livro ainda</span>' : ''}
       </div>
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">🔍 Livros lidos</div>
@@ -5787,7 +5767,7 @@ function openMetaDetail(id) {
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px">Você leu ${lidos} de ${meta} livros</div>
 
       <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">🔍 Total relacionados</div>
-      <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600">${linkedBooks.length}</div>
+      <div style="padding:10px 16px;border-bottom:1px solid var(--card-border);font-size:13px;font-weight:600">${total}</div>
 
       <div style="padding:10px 16px;background:var(--bg);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px">Σ Conclusão da meta</div>
       <div style="padding:10px 16px;font-size:13px">${frase}</div>
@@ -5801,8 +5781,8 @@ function openMetaDetail(id) {
 
     <!-- Lista -->
     <div id="meta-tab-lista">
-      ${linkedBooks.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">📚</div><p>Nenhum livro com esta meta ainda. Adicione a meta aos livros no cadastro.</p></div>`
+      ${allBooks.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">📚</div><p>Nenhum livro em ${m.ano} ainda.</p></div>`
         : `<div class="data-table-wrap">
             <table class="data-table" style="width:100%">
               <thead><tr><th>Nome</th><th>Status</th><th>Data da leitura</th><th>Avaliação</th><th>Progresso</th></tr></thead>
@@ -5814,9 +5794,9 @@ function openMetaDetail(id) {
     <!-- Galeria -->
     <div id="meta-tab-galeria" style="display:none">
       <div class="lib-gallery">
-        ${linkedBooks.length === 0
-          ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⭐</div><p>Nenhum livro com esta meta ainda.</p></div>`
-          : linkedBooks.map(b => bookCardHTML(b)).join('')}
+        ${allBooks.length === 0
+          ? `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">⭐</div><p>Nenhum livro em ${m.ano} ainda.</p></div>`
+          : allBooks.map(b => bookCardHTML(b)).join('')}
       </div>
     </div>
 
