@@ -3444,6 +3444,13 @@ function defaultDB() {
 function migrateDB(d) {
   if (!d.historicos)   d.historicos   = [];
   if (!d.series)       d.series       = DEFAULT_SERIES;
+  else {
+    // Merge new default series (add any that don't exist yet, never overwrite existing)
+    const existingSerieIds = new Set(d.series.map(s => s.id));
+    DEFAULT_SERIES.forEach(def => {
+      if (!existingSerieIds.has(def.id)) d.series.push(def);
+    });
+  }
   if (!d.prateleiras)  d.prateleiras  = DEFAULT_PRATELEIRAS;
   if (!d.metas)        d.metas        = DEFAULT_METAS;
   if (!d.desafios)     d.desafios     = DEFAULT_DESAFIOS;
@@ -3497,6 +3504,8 @@ function loadData() {
 function saveData(data) {
   // 1. Instant local save (no lag)
   localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(data));
+  // Mark timestamp so Firestore load won't overwrite a recent save
+  window._lastLocalSave = Date.now();
 
   // 2. Firestore save debounced 1.5s (avoids too many writes)
   if (_saveTimer) clearTimeout(_saveTimer);
@@ -3558,7 +3567,9 @@ auth.onAuthStateChanged(async (user) => {
       setSyncStatus('ok');
     } else {
       setSyncStatus('syncing');
-      const cloudData = await _loadFromFirestore();
+      // Don't overwrite local changes made in the last 10 seconds
+      const recentlySaved = window._lastLocalSave && (Date.now() - window._lastLocalSave < 10000);
+      const cloudData = recentlySaved ? null : await _loadFromFirestore();
       if (cloudData) {
         DB = cloudData;
         localStorage.setItem('luisa_bookshelf_v1', JSON.stringify(DB));
