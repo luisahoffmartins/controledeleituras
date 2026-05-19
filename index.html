@@ -3511,7 +3511,7 @@ function saveData(data) {
 
   // 2. Firestore save debounced 500ms (reduzido para minimizar perda em refresh rápido)
   if (_saveTimer) clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(() => _saveToFirestore(data), 500);
+  _saveTimer = setTimeout(() => _saveToFirestore(data), 100);
 }
 
 async function _saveToFirestore(data) {
@@ -3561,6 +3561,9 @@ window.addEventListener('beforeunload', () => {
   if (_saveTimer) {
     clearTimeout(_saveTimer);
     _saveTimer = null;
+  }
+  // Sempre tenta salvar ao sair da página (com ou sem timer pendente)
+  if (currentUser) {
     _saveToFirestore(DB);
   }
 });
@@ -5640,16 +5643,10 @@ function renderDesafios() {
 // ── METAS ──
 
 function getBooksForMeta(m) {
-  const ano = m.ano || new Date().getFullYear();
   return DB.books.filter(b => {
     // Explicit link via meta field (array or legacy string)
     const metaVals = Array.isArray(b.meta) ? b.meta : (b.meta ? [b.meta] : []);
-    if (metaVals.includes(m.id) || metaVals.includes(m.nome)) return true;
-    // Auto-link by year
-    const bookAno = b.ano
-      || (b.fim    ? parseInt(b.fim.split('-')[0], 10)    : null)
-      || (b.inicio ? parseInt(b.inicio.split('-')[0], 10) : null);
-    return bookAno === ano;
+    return metaVals.includes(m.id) || metaVals.includes(m.nome);
   });
 }
 function getLidosForMeta(m) {
